@@ -22,7 +22,7 @@ const products = [
       "sales_description": "Each 5ml Contains, Albendazole IP 200mg oral Suspension",
       "uqc": "nan",
       "packing_sizes": [
-        "10ml"
+        "100ml"
       ]
     },
     {

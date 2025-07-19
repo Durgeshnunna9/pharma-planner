@@ -6,9 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Upload, Search, X } from "lucide-react";
+import { Plus, Upload, Search, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 import initialProducts from "../data/product.js";
+import { saveAs } from 'file-saver';
+import { useRef } from "react";
 
 interface Product {
   external_id: string;
@@ -27,11 +30,11 @@ const ProductsTab = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductDetails, setShowProductDetails] = useState(false);
   const { toast } = useToast();
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProduct, setNewProduct] = useState({
-    genericName: "",
+    productName: "",
     description: "",
-    packingSizes: "",
+    packingSizes: [""],
     category: "Human" as "Human" | "Veterinary",
     hsnCode: "",
     taxPercentage: 0,
@@ -39,7 +42,7 @@ const ProductsTab = () => {
   });
 
   const handleAddProduct = () => {
-    if (!newProduct.genericName || !newProduct.description) {
+    if (!newProduct.productName || !newProduct.description || !newProduct.packingSizes || !newProduct.category || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -49,22 +52,21 @@ const ProductsTab = () => {
     }
 
     const product = {
-      id: Date.now().toString(),
-      genericName: newProduct.genericName,
-      description: newProduct.description,
-      packingSizes: newProduct.packingSizes.split(",").map(size => size.trim()),
+      external_id: Date.now().toString(),
+      product_name: newProduct.productName,
+      sales_description: newProduct.description,
+      packing_sizes: newProduct.packingSizes.filter(s => s.trim()!== ""),
       category: newProduct.category,
       hsnCode: newProduct.hsnCode,
       taxPercentage: newProduct.taxPercentage,
-      primaryUnit: newProduct.primaryUnit,
       brandNames: [],
     };
     
     setProducts([...products, product]);
     setNewProduct({
-      genericName: "",
+      productName: "",
       description: "",
-      packingSizes: "",
+      packingSizes: [""],
       category: "Human",
       hsnCode: "",
       taxPercentage: 0,
@@ -82,12 +84,75 @@ const ProductsTab = () => {
     setSelectedProduct(product);
     setShowProductDetails(true);
   };
-
+  const handleDownloadProducts = () => {
+    // Prepare data for export (flatten arrays, etc.)
+    const exportData = products.map(product => ({
+      "External ID": product.external_id,
+      "Product Name": product.product_name,
+      "Category": product.category,
+      "Internal Reference": product.internal_reference,
+      "Description": product.sales_description,
+      "Packing Sizes": product.packing_sizes.join(", "),
+      "UQC": product.uqc,
+    }));
+  
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+  
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, "products.xlsx");
+  };
+  const handleImportProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const result = evt.target?.result;
+      if (!result || typeof result === "string") {
+        toast({
+          title: "Import Failed",
+          description: "Invalid file format.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const data = new Uint8Array(result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+  
+      // Map the imported data to your product structure
+      const importedProducts = jsonData.map((row: any, idx: number) => ({
+        external_id: row["External ID"] || `imported-${idx}`,
+        product_name: row["Product Name"] || "",
+        sales_description: row["Description"] || "",
+        packing_sizes: typeof row["Packing Sizes"] === "string" ? row["Packing Sizes"].split(",").map((s: string) => s.trim()) : [],
+        category: row["Category"] === "Veterinary" ? "Veterinary" : "Human",
+        internal_reference: row["Internal Reference"] || "",
+        uqc: row["UQC"] || "",
+      }));
+  
+      setProducts([...products, ...importedProducts]);
+      toast({
+        title: "Import Successful",
+        description: `${importedProducts.length} products imported.`,
+      });
+  
+      // Clear file input
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
   const filteredProducts = products.filter(product =>
     // product.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     // product.description.toLowerCase().includes(searchTerm.toLowerCase())
     product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  product.sales_description.toLowerCase().includes(searchTerm.toLowerCase())
+    product.sales_description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -95,9 +160,24 @@ const ProductsTab = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Products Management</h2>
         <div className="flex gap-3">
+        <input
+            type="file"
+            accept=".xlsx, .xls"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleImportProducts}
+          />
           <Button
             variant="outline"
-            onClick={() => toast({ title: "Feature Coming Soon", description: "Excel import will be available soon" })}
+            onClick={handleDownloadProducts}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download Product Data
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current && fileInputRef.current.click()}
             className="flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
@@ -133,12 +213,12 @@ const ProductsTab = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="genericName">Generic Name *</Label>
+                <Label htmlFor="genericName">Product Name *</Label>
                 <Input
                   id="genericName"
-                  value={newProduct.genericName}
-                  onChange={(e) => setNewProduct({...newProduct, genericName: e.target.value})}
-                  placeholder="Enter generic name"
+                  value={newProduct.productName}
+                  onChange={(e) => setNewProduct({...newProduct, productName: e.target.value})}
+                  placeholder="Enter product name"
                 />
               </div>
               <div>
@@ -164,10 +244,9 @@ const ProductsTab = () => {
                 placeholder="Enter product description"
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            {/* <div >
               <div>
-                <Label htmlFor="packingSizes">Packing Sizes (comma separated)</Label>
+                <Label >Packing Sizes </Label>
                 <Input
                   id="packingSizes"
                   value={newProduct.packingSizes}
@@ -184,8 +263,58 @@ const ProductsTab = () => {
                   placeholder="ml, tablets, etc."
                 />
               </div>
+            </div> */}
+            <Label htmlFor="packingSizes">Packing Sizes *</Label>
+            <div className="grid grid-rows-1 gap-4">
+              {newProduct.packingSizes.map((size, idx) => (
+                <div key={idx} className="flex gap-2 mb-2">
+                  <Input
+                    value={size}
+                    onChange={e => {
+                      const updated = [...newProduct.packingSizes];
+                      updated[idx] = e.target.value;
+                      setNewProduct({ ...newProduct, packingSizes: updated });
+                    }}
+                    placeholder="e.g. 60ml"
+                  />
+                  {newProduct.packingSizes.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setNewProduct({
+                          ...newProduct,
+                          packingSizes: newProduct.packingSizes.filter((_, i) => i !== idx)
+                        });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  setNewProduct({
+                    ...newProduct,
+                    packingSizes: [...newProduct.packingSizes, ""]
+                  })
+                }
+              >
+                Add Packing Size
+              </Button>
             </div>
-
+            <div>
+              <Label htmlFor="primaryUnit">Primary Unit</Label>
+              <Input
+                id="primaryUnit"
+                value={newProduct.primaryUnit}
+                onChange={e => setNewProduct({ ...newProduct, primaryUnit: e.target.value })}
+                placeholder="ml, tablets, etc."
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="hsnCode">HSN Code</Label>
@@ -249,7 +378,7 @@ const ProductsTab = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right text-sm text-gray-500">
+                  <div className="text-right text-sm text-gray-500 mt-2">
                     <p>Ref: {product.internal_reference}</p>
                     <p>ID: {product.external_id}</p>
                     <p>UQC: {product.uqc}</p>
@@ -267,14 +396,14 @@ const ProductsTab = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Product Details</span>
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowProductDetails(false)}
                 className="h-8 w-8 p-0"
               >
                 <X className="h-4 w-4" />
-              </Button>
+              </Button> */}
             </DialogTitle>
           </DialogHeader>
           

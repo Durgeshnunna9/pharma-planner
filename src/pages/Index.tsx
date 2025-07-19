@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Package, Users, Factory, Monitor, BarChart3 } from "lucide-react";
+import { Package, Users, Factory, Monitor, BarChart3, FileText } from "lucide-react";
 import ProductsTab from "@/components/ProductsTab";
 import CustomersTab from "@/components/CustomersTab";
 import ProductionTab from "@/components/ProductionTab";
