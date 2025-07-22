@@ -1,0 +1,18 @@
+### 10-07-2025
+Recieved the Web app
+
+### 13-07-2025
+- Imported/filled the data of Products and Customers.
+- Added a pop up when clicked on a product or customer item.
+- Maintained color pallete.
+
+### 14-07-2025
+- Added a feture: Bulk import.
+- Updated design of pop-up.
+- Added a feature: Bulk export in excel format.
+- Updated add Product/Customer.
+- Deployed through netlify.
+
+### 22-07-2025
+- Single product details edit.
+- Filter products according to a category.

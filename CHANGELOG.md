@@ -77,3 +77,7 @@ src/
 - Local development server runs on http://localhost:8080
 - All product data is currently stored locally
 - UI components follow shadcn/ui design system 
+
+---
+
+ 

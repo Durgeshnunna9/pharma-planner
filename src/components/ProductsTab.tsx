@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Upload, Search, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-import initialProducts from "../data/product.js";
+// import initialProducts from "../data/product.js";
 import { saveAs } from 'file-saver';
 import { useRef } from "react";
 
@@ -24,7 +24,7 @@ interface Product {
 }
 
 const ProductsTab = () => {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState([]));
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -40,6 +40,16 @@ const ProductsTab = () => {
     taxPercentage: 0,
     primaryUnit: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    product_name: '',
+    sales_description: '',
+    packing_sizes: [''],
+    category: 'Human' as 'Human' | 'Veterinary',
+    internal_reference: '',
+    uqc: '',
+  });
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const handleAddProduct = () => {
     if (!newProduct.productName || !newProduct.description || !newProduct.packingSizes || !newProduct.category || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
@@ -149,10 +159,13 @@ const ProductsTab = () => {
   };
   
   const filteredProducts = products.filter(product =>
-    // product.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    // product.description.toLowerCase().includes(searchTerm.toLowerCase())
-    product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sales_description.toLowerCase().includes(searchTerm.toLowerCase())
+    (categoryFilter !== "all" ? product.category === categoryFilter : true) &&
+    (
+      product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sales_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.external_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.internal_reference.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   return (
@@ -350,6 +363,21 @@ const ProductsTab = () => {
       )}
 
       {/* Products List */}
+      <div className="flex gap-4 mb-4">
+        <Select
+          value={categoryFilter}
+          onValueChange={value => setCategoryFilter(value)}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Filter by Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="Human">Human</SelectItem>
+            <SelectItem value="Veterinary">Veterinary</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid gap-4">
         {filteredProducts.length === 0 ? (
           <Card className="p-8 text-center">
@@ -365,12 +393,10 @@ const ProductsTab = () => {
                     <p className="text-gray-600 mt-1">{product.sales_description}</p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        product.category === "Human" 
-                          ? "bg-blue-100 text-blue-800" 
+                        product.category === "Human"
+                          ? "bg-blue-100 text-blue-800"
                           : "bg-purple-100 text-purple-800"
-                      }`}>
-                        {product.category}
-                      </span>
+                      }`}>{product.category}</span>
                       {product.packing_sizes.map((size, index) => (
                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
                           {size}
@@ -412,42 +438,102 @@ const ProductsTab = () => {
               {/* Product Header */}
               <div className="border-b pb-4">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {selectedProduct.product_name}
+                  {isEditing ? (
+                    <Input
+                      value={editForm.product_name}
+                      onChange={e => setEditForm({ ...editForm, product_name: e.target.value })}
+                    />
+                  ) : (
+                    selectedProduct.product_name
+                  )}
                 </h2>
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedProduct.category === "Human" 
-                      ? "bg-blue-100 text-blue-800" 
-                      : "bg-purple-100 text-purple-800"
-                  }`}>
-                    {selectedProduct.category}
-                  </span>
+                  {isEditing ? (
+                    <Select
+                      value={editForm.category}
+                      onValueChange={value => setEditForm({ ...editForm, category: value as 'Human' | 'Veterinary' })}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Human">Human</SelectItem>
+                        <SelectItem value="Veterinary">Veterinary</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      selectedProduct.category === "Human"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-purple-100 text-purple-800"
+                    }`}>{selectedProduct.category}</span>
+                  )}
                   <span className="text-sm text-gray-500">
                     ID: {selectedProduct.external_id}
                   </span>
                 </div>
               </div>
-
               {/* Product Description */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  {selectedProduct.sales_description}
-                </p>
+                {isEditing ? (
+                  <Textarea
+                    value={editForm.sales_description}
+                    onChange={e => setEditForm({ ...editForm, sales_description: e.target.value })}
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">
+                    {selectedProduct.sales_description}
+                  </p>
+                )}
               </div>
-
               {/* Packing Sizes */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Available Packing Sizes</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProduct.packing_sizes.map((size, index) => (
-                    <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-                      {size}
-                    </span>
-                  ))}
-                </div>
+                {isEditing ? (
+                  <div className="flex flex-col gap-2">
+                    {editForm.packing_sizes.map((size, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <Input
+                          value={size}
+                          onChange={e => {
+                            const newSizes = [...editForm.packing_sizes];
+                            newSizes[idx] = e.target.value;
+                            setEditForm({ ...editForm, packing_sizes: newSizes });
+                          }}
+                          className="w-40"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const newSizes = editForm.packing_sizes.filter((_, i) => i !== idx);
+                            setEditForm({ ...editForm, packing_sizes: newSizes.length ? newSizes : [''] });
+                          }}
+                          disabled={editForm.packing_sizes.length === 1}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditForm({ ...editForm, packing_sizes: [...editForm.packing_sizes, ''] })}
+                    >
+                      Add Size
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.packing_sizes.map((size, index) => (
+                      <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                        {size}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-
               {/* Additional Details */}
               <div className="grid grid-cols-2 gap-6">
                 <div>
@@ -455,7 +541,7 @@ const ProductsTab = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Internal Reference:</span>
-                      <span className="font-medium">{selectedProduct.internal_reference}</span>
+                      <span className="font-medium">{isEditing ? editForm.internal_reference : selectedProduct.internal_reference}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">External ID:</span>
@@ -463,52 +549,64 @@ const ProductsTab = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">UQC:</span>
-                      <span className="font-medium">{selectedProduct.uqc || "N/A"}</span>
+                      <span className="font-medium">{isEditing ? editForm.uqc : selectedProduct.uqc || "N/A"}</span>
                     </div>
                   </div>
                 </div>
-
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Product Category</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Category:</span>
-                      <span className="font-medium">{selectedProduct.category}</span>
+                      <span className="font-medium">{isEditing ? editForm.category : selectedProduct.category}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Packing Options:</span>
-                      <span className="font-medium">{selectedProduct.packing_sizes.length}</span>
+                      <span className="font-medium">{isEditing ? editForm.packing_sizes.length : selectedProduct.packing_sizes.length}</span>
                     </div>
                   </div>
                 </div>
               </div>
-
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
-                <Button 
-                  onClick={() => {
-                    // Add to production order logic here
-                    toast({
-                      title: "Feature Coming Soon",
-                      description: "Add to production order functionality will be available soon",
-                    });
-                  }}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  Add to Production Order
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    // Edit product logic here
-                    toast({
-                      title: "Feature Coming Soon", 
-                      description: "Edit product functionality will be available soon",
-                    });
-                  }}
-                >
-                  Edit Product
-                </Button>
+                {isEditing ? (
+                  <>
+                    <Button
+                      className="bg-green-500 hover:bg-green-600"
+                      onClick={() => {
+                        // Save changes
+                        setProducts(products.map(p =>
+                          p.external_id === selectedProduct.external_id ? { ...p, ...editForm } : p
+                        ));
+                        setSelectedProduct({ ...selectedProduct, ...editForm });
+                        setIsEditing(false);
+                        toast({ title: "Product updated", description: "Product details updated successfully." });
+                      }}
+                    >
+                      Save
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditForm({
+                        product_name: selectedProduct.product_name,
+                        sales_description: selectedProduct.sales_description,
+                        packing_sizes: [...selectedProduct.packing_sizes],
+                        category: selectedProduct.category,
+                        internal_reference: selectedProduct.internal_reference,
+                        uqc: selectedProduct.uqc,
+                      });
+                      setIsEditing(true);
+                    }}
+                  >
+                    Edit Product
+                  </Button>
+                )}
               </div>
             </div>
           )}

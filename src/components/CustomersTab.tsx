@@ -34,6 +34,7 @@ const CustomersTab = () => {
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [gstLocked, setGstLocked] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     customer_code: "",
     company_name: "",
@@ -44,6 +45,64 @@ const CustomersTab = () => {
     billing_address: "",
     shipping_address: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    customer_code: '',
+    customer_name: '',
+    gstin_number: '',
+    company_name: '',
+    dl20b_number: '',
+    dl21b_number: '',
+    billing_address: '',
+    shipping_address: '',
+  });
+
+  const handleGstinLookup = async () => {
+    const gstin = newCustomer.gstin_number.trim();
+    if (!gstin) {
+      toast({
+        title: "Error",
+        description: "Please enter a GSTIN number first.",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    try {
+      // Replace with your actual GST API endpoint and key
+      const response = await fetch(`https://your-gst-api.com/gstin/${gstin}`,//Enter your gst number here 
+        {
+        headers: {
+          "Authorization": "Bearer YOUR_API_KEY"
+        }
+      });
+      if (!response.ok) throw new Error("GSTIN not found or API error");
+      const data = await response.json();
+  
+      // Example: adjust these fields based on your API's response structure
+      setNewCustomer({
+        ...newCustomer,
+        company_name: data.legalName || "",
+        customer_code: data.code || "",
+        dl20b_number: data.dl20b_number || "",
+        dl21b_number: data.dl21b_number || "",
+        billing_address: data.address || "",
+        shipping_address: data.address || "",
+        // Add more fields as needed. These will depend on what json data is been recieved from gst portal.
+      });
+      setGstLocked(true);
+      toast({
+        title: "GSTIN Data Fetched",
+        description: "Company details have been filled from GSTIN.",
+      });
+    } catch (error) {
+      toast({
+        title: "GSTIN Lookup Failed",
+        description: error.message || "Could not fetch GSTIN details.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleAddCustomer = () => {
     if (!newCustomer.company_name || !newCustomer.customer_code) {
@@ -217,6 +276,25 @@ const CustomersTab = () => {
             <CardTitle className="text-green-700">Add New Customer</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Label htmlFor="gstinNumber">GSTIN Number</Label>
+            <div className="grid grid-cols-3 gap-4">
+                <Input
+                  id="gstinNumber"
+                  value={newCustomer.gstin_number}
+                  onChange={(e) => setNewCustomer({...newCustomer, gstin_number: e.target.value})}
+                  placeholder="Enter GSTIN"
+                />
+                <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md w-12 h-10" type="button" onClick={handleGstinLookup}>
+                  <Search className="w-4 h-4" />
+                </button>
+                <Button
+                  type="button"
+                  onClick={() => setGstLocked(false)}
+                  className="ml-2 bg-violet-900 hover:bg-purple-400 text-white px-4 py-2 rounded-md w-15 h-10"
+                >
+                  Edit Fields
+                </Button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="companyName">Company Name *</Label>
@@ -225,6 +303,7 @@ const CustomersTab = () => {
                   value={newCustomer.company_name}
                   onChange={(e) => setNewCustomer({...newCustomer, company_name: e.target.value})}
                   placeholder="Enter company name"
+                  readOnly={gstLocked}
                 />
               </div>
               <div>
@@ -234,20 +313,12 @@ const CustomersTab = () => {
                   value={newCustomer.customer_code}
                   onChange={(e) => setNewCustomer({...newCustomer, customer_code: e.target.value})}
                   placeholder="Enter customer code"
+                  readOnly={gstLocked}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="gstinNumber">GSTIN Number</Label>
-                <Input
-                  id="gstinNumber"
-                  value={newCustomer.gstin_number}
-                  onChange={(e) => setNewCustomer({...newCustomer, gstin_number: e.target.value})}
-                  placeholder="Enter GSTIN"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="dl20B">20B DL Number</Label>
                 <Input
@@ -255,6 +326,7 @@ const CustomersTab = () => {
                   value={newCustomer.dl20b_number}
                   onChange={(e) => setNewCustomer({...newCustomer, dl20b_number: e.target.value})}
                   placeholder="Enter 20B DL number"
+                  readOnly={gstLocked}
                 />
               </div>
               <div>
@@ -264,6 +336,7 @@ const CustomersTab = () => {
                   value={newCustomer.dl21b_number}
                   onChange={(e) => setNewCustomer({...newCustomer, dl21b_number: e.target.value})}
                   placeholder="Enter 21B DL Number"
+                  readOnly={gstLocked}
                 />
               </div>
             </div>
@@ -381,20 +454,42 @@ const CustomersTab = () => {
               {/* Customer Header */}
               <div className="border-b pb-4">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {selectedCustomer.company_name}
+                  {isEditing ? (
+                    <Input
+                      value={editForm.company_name}
+                      onChange={e => setEditForm({ ...editForm, company_name: e.target.value })}
+                    />
+                  ) : (
+                    selectedCustomer.company_name
+                  )}
                 </h2>
                 <div className="flex items-center gap-3">
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Code: {selectedCustomer.customer_code}
+                    Code: {isEditing ? (
+                      <Input
+                        value={editForm.customer_code}
+                        onChange={e => setEditForm({ ...editForm, customer_code: e.target.value })}
+                        className="w-32 inline-block"
+                      />
+                    ) : (
+                      selectedCustomer.customer_code
+                    )}
                   </span>
-                  {selectedCustomer.gstin_number && (
+                  {(isEditing ? editForm.gstin_number : selectedCustomer.gstin_number) && (
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      GSTIN: {selectedCustomer.gstin_number}
+                      GSTIN: {isEditing ? (
+                        <Input
+                          value={editForm.gstin_number}
+                          onChange={e => setEditForm({ ...editForm, gstin_number: e.target.value })}
+                          className="w-40 inline-block"
+                        />
+                      ) : (
+                        selectedCustomer.gstin_number
+                      )}
                     </span>
                   )}
                 </div>
               </div>
-
               {/* License Numbers & Addresses */}
               <div className="grid grid-cols-2 gap-6">
                 <div>
@@ -402,11 +497,27 @@ const CustomersTab = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">20B DL No:</span>
-                      <span className="font-medium">{selectedCustomer.dl20b_number || "N/A"}</span>
+                      {isEditing ? (
+                        <Input
+                          value={editForm.dl20b_number}
+                          onChange={e => setEditForm({ ...editForm, dl20b_number: e.target.value })}
+                          className="w-32 inline-block"
+                        />
+                      ) : (
+                        <span className="font-medium">{selectedCustomer.dl20b_number || "N/A"}</span>
+                      )}
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">201B DL No:</span>
+                      {isEditing ? (
+                        <Input
+                          value={editForm.dl21b_number}
+                          onChange={e => setEditForm({ ...editForm, dl21b_number: e.target.value })}
+                          className="w-32 inline-block"
+                        />
+                      ) : (
                         <span className="font-medium">{selectedCustomer.dl21b_number || "N/A"}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -415,42 +526,75 @@ const CustomersTab = () => {
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-gray-600 font-medium">Billing Address:</span>
-                      <div className="text-gray-700">{selectedCustomer.billing_address || "N/A"}</div>
+                      {isEditing ? (
+                        <Textarea
+                          value={editForm.billing_address}
+                          onChange={e => setEditForm({ ...editForm, billing_address: e.target.value })}
+                          className="w-full"
+                        />
+                      ) : (
+                        <div className="text-gray-700">{selectedCustomer.billing_address || "N/A"}</div>
+                      )}
                     </div>
                     <div>
                       <span className="text-gray-600 font-medium">Shipping Address:</span>
-                      <div className="text-gray-700">{selectedCustomer.shipping_address || "N/A"}</div>
+                      {isEditing ? (
+                        <Textarea
+                          value={editForm.shipping_address}
+                          onChange={e => setEditForm({ ...editForm, shipping_address: e.target.value })}
+                          className="w-full"
+                        />
+                      ) : (
+                        <div className="text-gray-700">{selectedCustomer.shipping_address || "N/A"}</div>
+                      )}
                     </div>
                   </div>
                 </div>
-          </div>
-
+              </div>
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  onClick={() => {
-                    toast({
-                      title: "Feature Coming Soon",
-                      description: "Order functionality will be available soon",
-                    });
-                  }}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  Add Order
-                </Button>
-              <Button
-                  variant="outline"
-                  onClick={() => {
-                    toast({
-                      title: "Feature Coming Soon",
-                      description: "Edit customer functionality will be available soon",
-                    });
-                  }}
-                >
-                  Edit Customer
-              </Button>
+                {isEditing ? (
+                  <>
+                    <Button
+                      className="bg-green-500 hover:bg-green-600"
+                      onClick={() => {
+                        // Save changes
+                        setCustomers(customers.map(c =>
+                          c.id === selectedCustomer.id ? { ...c, ...editForm } : c
+                        ));
+                        setSelectedCustomer({ ...selectedCustomer, ...editForm });
+                        setIsEditing(false);
+                        toast({ title: "Customer updated", description: "Customer details updated successfully." });
+                      }}
+                    >
+                      Save
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditForm({
+                        customer_code: selectedCustomer.customer_code,
+                        customer_name: selectedCustomer.customer_name,
+                        gstin_number: selectedCustomer.gstin_number,
+                        company_name: selectedCustomer.company_name,
+                        dl20b_number: selectedCustomer.dl20b_number,
+                        dl21b_number: selectedCustomer.dl21b_number,
+                        billing_address: selectedCustomer.billing_address,
+                        shipping_address: selectedCustomer.shipping_address,
+                      });
+                      setIsEditing(true);
+                    }}
+                  >
+                    Edit Customer
+                  </Button>
+                )}
               </div>
-          </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
