@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Upload, Search, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
-// import initialProducts from "../data/product.js";
+import initialProducts from "../data/product.js";
 import { saveAs } from 'file-saver';
 import { useRef } from "react";
 
@@ -24,7 +24,7 @@ interface Product {
 }
 
 const ProductsTab = () => {
-  const [products, setProducts] = useState([]));
+  const [products, setProducts] = useState(initialProducts);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
