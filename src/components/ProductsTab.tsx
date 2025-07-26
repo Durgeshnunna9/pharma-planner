@@ -16,11 +16,15 @@ import { useRef } from "react";
 interface Product {
   external_id: string;
   product_name: string;
+  category: "Human" | "Veterinary";
+  sub_category: "Antibiotic" | "Antihelmintic" | "Antihistamine" | "Cough/Cold" | "Digestive/Laxative" | "Electrolyte/Other" | "Vitamin/Supplement" | "Analgesic/Antipyretic";
+  common_description: string;
+  internal_reference: string;
   sales_description: string;
   packing_sizes: string[];
-  category: "Human" | "Veterinary";
-  internal_reference: string;
-  uqc: string;
+  uqc: "BTL" | "PCS";
+  
+  
 }
 
 const ProductsTab = () => {
@@ -32,27 +36,73 @@ const ProductsTab = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProduct, setNewProduct] = useState({
+    externalId: "",
     productName: "",
-    description: "",
-    packingSizes: [""],
     category: "Human" as "Human" | "Veterinary",
+    subCategory: "Antibiotic" as "Antibiotic" | "Antihelmintic" | "Antihistamine" | "Cough/Cold" | "Digestive/Laxative" | "Electrolyte/Other" | "Vitamin/Supplement" | "Analgesic/Antipyretic",
+    commonDescription: "",
+    internalReference: "",
+    salesDescription: "",
+    packingSizes: [""],
+    uqc: 'BTL' as 'BTL' | 'PCS',
+    primaryUnit: "",
     hsnCode: "",
     taxPercentage: 0,
-    primaryUnit: "",
+
   });
+  const [parentCategoryFilter, setParentCategoryFilter] = useState("all");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
+
+  const subCategories = {
+    Human: [
+      "Analgesic/Antipyretic",
+      "Antibiotic",
+      "Antihelmintic",
+      "Antihistamine",
+      "Cough/Cold",
+      "Digestive/Laxative",
+      "Electrolyte/Other",
+      "Vitamin/Supplement"
+    ],
+    Veterinary: [
+      "Analgesic/Antipyretic",
+      "Antibiotic",
+      "Antihelmintic",
+      "Antihistamine",
+      "Cough/Cold",
+      "Digestive/Laxative",
+      "Electrolyte/Other"
+    ]
+  };
+  const subCategoryColorMap: { [key: string]: string } = {
+    "Antibiotic": "bg-red-100 text-red-800 hover:bg-red-200",
+    "Antihelmintic": "bg-amber-100 text-amber-800 hover:bg-amber-200",
+    "Antihistamine": "bg-teal-100 text-teal-800 hover:bg-teal-200",
+    "Cough/Cold": "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    "Digestive/Laxative": "bg-green-100 text-green-800 hover:bg-green-200",
+    "Electrolyte/Other": "bg-rose-100 text-rose-800 hover:bg-rose-200",
+    "Vitamin/Supplement": "bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200",
+    "Analgesic/Antipyretic": "bg-orange-100 text-orange-800 hover:bg-orange-200",
+  };
+  
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    product_name: '',
+    external_id: '',
+    product_name: '', 
+    category: 'Human' as 'Human' | 'Veterinary',
+    sub_category: 'Antibiotic' as 'Antibiotic' | 'Antihelmintic' | 'Antihistamine' | 'Cough/Cold' | 'Digestive/Laxative' | 'Electrolyte/Other' | 'Vitamin/Supplement' | 'Analgesic/Antipyretic',
+    common_description: '',
+    internal_reference: '',
     sales_description: '',
     packing_sizes: [''],
-    category: 'Human' as 'Human' | 'Veterinary',
-    internal_reference: '',
-    uqc: '',
+    uqc: 'BTL' as 'BTL' | 'PCS',
+
   });
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  
 
   const handleAddProduct = () => {
-    if (!newProduct.productName || !newProduct.description || !newProduct.packingSizes || !newProduct.category || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
+    if (!newProduct.externalId || !newProduct.productName || !newProduct.category || !newProduct.subCategory || !newProduct.commonDescription || !newProduct.uqc || !newProduct.salesDescription || !newProduct.packingSizes ||  !newProduct.internalReference || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -62,25 +112,35 @@ const ProductsTab = () => {
     }
 
     const product = {
-      external_id: Date.now().toString(),
+      external_id: newProduct.externalId,
       product_name: newProduct.productName,
-      sales_description: newProduct.description,
-      packing_sizes: newProduct.packingSizes.filter(s => s.trim()!== ""),
       category: newProduct.category,
+      sub_category: newProduct.subCategory,
+      common_description: newProduct.commonDescription,
+      internal_reference: newProduct.internalReference,
+      sales_description: newProduct.salesDescription,
+      packing_sizes: newProduct.packingSizes.filter(s => s.trim()!== ""),
+      uqc: newProduct.uqc,
       hsnCode: newProduct.hsnCode,
       taxPercentage: newProduct.taxPercentage,
-      brandNames: [],
+      // brandNames: [],
     };
     
     setProducts([...products, product]);
     setNewProduct({
+      externalId: "",
       productName: "",
-      description: "",
-      packingSizes: [""],
       category: "Human",
+      subCategory: "Antibiotic",
+      commonDescription: "",
+      internalReference: "",
+      salesDescription: "",
+      packingSizes: [""],
+      uqc: "BTL",
       hsnCode: "",
       taxPercentage: 0,
       primaryUnit: "",
+      
     });
     setShowAddForm(false);
 
@@ -100,8 +160,10 @@ const ProductsTab = () => {
       "External ID": product.external_id,
       "Product Name": product.product_name,
       "Category": product.category,
+      "Sub-Category": product.sub_category,
+      "Common Description": product.common_description,
       "Internal Reference": product.internal_reference,
-      "Description": product.sales_description,
+      "Sales Description": product.sales_description,
       "Packing Sizes": product.packing_sizes.join(", "),
       "UQC": product.uqc,
     }));
@@ -139,10 +201,12 @@ const ProductsTab = () => {
       const importedProducts = jsonData.map((row: any, idx: number) => ({
         external_id: row["External ID"] || `imported-${idx}`,
         product_name: row["Product Name"] || "",
+        category: row["Category"] === "Veterinary" ? "Veterinary" : "Human",
+        sub_category: row["Sub-Category"] === "Antibiotic" || "Antihelmintic" || "Antihistamine" || "Cough/Cold" || "Digestive/Laxative" || "Electrolyte/Other" || "Vitamin/Supplement" || "Analgesic/Antipyretic",
+        common_description: row["Common Description"]|| "",
+        internal_reference: row["Internal Reference"] || "",
         sales_description: row["Description"] || "",
         packing_sizes: typeof row["Packing Sizes"] === "string" ? row["Packing Sizes"].split(",").map((s: string) => s.trim()) : [],
-        category: row["Category"] === "Veterinary" ? "Veterinary" : "Human",
-        internal_reference: row["Internal Reference"] || "",
         uqc: row["UQC"] || "",
       }));
   
@@ -159,14 +223,21 @@ const ProductsTab = () => {
   };
   
   const filteredProducts = products.filter(product =>
-    (categoryFilter !== "all" ? product.category === categoryFilter : true) &&
+    // Parent category filter
+    (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter : true) &&
+    
+    // Subcategory filter (only if subCategoryFilter is not empty)
+    (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
+    
+    // Search match
     (
       product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sales_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.external_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.internal_reference.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    )    
   );
+  
 
   return (
     <div className="space-y-6">
@@ -246,14 +317,33 @@ const ProductsTab = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label htmlFor="subCategory">Sub Category *</Label>
+                <Select value={newProduct.subCategory} onValueChange={(value: 'Antibiotic' | 'Antihelmintic' | 'Antihistamine' | 'Cough/Cold' | 'Digestive/Laxative' | 'Electrolyte/Other' | 'Vitamin/Supplement' | 'Analgesic/Antipyretic') => setNewProduct({...newProduct, subCategory: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                      <SelectItem value="Antibiotic" >Antibiotic</SelectItem>
+                      <SelectItem value="Antihelmintic">Antihelmintic</SelectItem>
+                      <SelectItem value="Antihistamine">Antihistamine</SelectItem>
+                      <SelectItem value="Cough/Cold">Cough/Cold</SelectItem>
+                      <SelectItem value="Digestive/Laxative">Digestive/Laxative</SelectItem>
+                      <SelectItem value="Electrolyte/Other">Electrolyte/Other</SelectItem>
+                      <SelectItem value="Vitamin/Supplement">Vitamin/Supplement</SelectItem>
+                      <SelectItem value="Analgesic/Antipyretic">Analgesic/Antipyretic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            
 
             <div>
-              <Label htmlFor="description">Product Description *</Label>
+              <Label htmlFor="salesDescription">Product Description *</Label>
               <Textarea
                 id="description"
-                value={newProduct.description}
-                onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                value={newProduct.salesDescription}
+                onChange={(e) => setNewProduct({...newProduct, salesDescription: e.target.value})}
                 placeholder="Enter product description"
               />
             </div>
@@ -365,11 +455,14 @@ const ProductsTab = () => {
       {/* Products List */}
       <div className="flex gap-4 mb-4">
         <Select
-          value={categoryFilter}
-          onValueChange={value => setCategoryFilter(value)}
+          value={parentCategoryFilter}
+          onValueChange={value => {
+            setParentCategoryFilter(value);
+            setSubCategoryFilter(""); // Reset subcategory on parent change
+          }}
         >
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="Filter by Category" />
+            <SelectValue placeholder="Select Type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -377,7 +470,28 @@ const ProductsTab = () => {
             <SelectItem value="Veterinary">Veterinary</SelectItem>
           </SelectContent>
         </Select>
+        
+        {/* Render subcategory dropdown only if a valid parent category is selected */}
+        {parentCategoryFilter && subCategories[parentCategoryFilter]?.length > 0 && (
+          <Select
+            value={subCategoryFilter}
+            onValueChange={value => setSubCategoryFilter(value)}
+            
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Select Subcategory" />
+            </SelectTrigger>
+            <SelectContent>
+              {subCategories[parentCategoryFilter].map((sub, idx) => (
+                <SelectItem key={idx} value={sub}>
+                  {sub}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
+
       <div className="grid gap-4">
         {filteredProducts.length === 0 ? (
           <Card className="p-8 text-center">
@@ -390,13 +504,16 @@ const ProductsTab = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">{product.product_name}</h3>
-                    <p className="text-gray-600 mt-1">{product.sales_description}</p>
+                    <p className="text-gray-600 mt-1 max-w-5xl">{product.sales_description}</p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                         product.category === "Human"
                           ? "bg-blue-100 text-blue-800"
                           : "bg-purple-100 text-purple-800"
                       }`}>{product.category}</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${subCategoryColorMap[product.sub_category]}`}>
+                        {product.sub_category}
+                      </span>
                       {product.packing_sizes.map((size, index) => (
                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
                           {size}
@@ -447,7 +564,7 @@ const ProductsTab = () => {
                     selectedProduct.product_name
                   )}
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-6">
                   {isEditing ? (
                     <Select
                       value={editForm.category}
@@ -467,10 +584,45 @@ const ProductsTab = () => {
                         ? "bg-blue-100 text-blue-800"
                         : "bg-purple-100 text-purple-800"
                     }`}>{selectedProduct.category}</span>
+
                   )}
-                  <span className="text-sm text-gray-500">
+                  {isEditing ? (
+                    <Select
+                      value={editForm.sub_category}
+                      onValueChange={value => setEditForm({ ...editForm, sub_category: value as 'Antibiotic' | 'Antihelmintic' | 'Antihistamine' | 'Cough/Cold' | 'Digestive/Laxative' | 'Electrolyte/Other' | 'Vitamin/Supplement' | 'Analgesic/Antipyretic' })}
+                    >
+                      <SelectTrigger className="w-60">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Antibiotic" >Antibiotic</SelectItem>
+                        <SelectItem value="Antihelmintic">Antihelmintic</SelectItem>
+                        <SelectItem value="Antihistamine">Antihistamine</SelectItem>
+                        <SelectItem value="Cough/Cold">Cough/Cold</SelectItem>
+                        <SelectItem value="Digestive/Laxative">Digestive/Laxative</SelectItem>
+                        <SelectItem value="Electrolyte/Other">Electrolyte/Other</SelectItem>
+                        <SelectItem value="Vitamin/Supplement">Vitamin/Supplement</SelectItem>
+                        <SelectItem value="Analgesic/Antipyretic">Analgesic/Antipyretic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${Object.entries(subCategoryColorMap).map(([key, className]) => (
+                      <SelectItem key={key} value={key} className={className}>
+                        {key}
+                      </SelectItem>
+                    ))}`}>{selectedProduct.sub_category}</span>
+
+                  )}
+                  {isEditing ?(<Textarea value={editForm.external_id} 
+                  onChange={e => setEditForm({ ...editForm, external_id: e.target.value })}
+                  />
+                  ):(
+                  <p className="text-sm text-gray-500">
                     ID: {selectedProduct.external_id}
-                  </span>
+                  </p>)
+                  }
+                  
+                  
                 </div>
               </div>
               {/* Product Description */}
@@ -594,11 +746,14 @@ const ProductsTab = () => {
                     variant="outline"
                     onClick={() => {
                       setEditForm({
+                        external_id:selectedProduct.external_id,
                         product_name: selectedProduct.product_name,
+                        category: selectedProduct.category,
+                        sub_category: selectedProduct.sub_category,
+                        common_description: selectedProduct.common_description,
+                        internal_reference: selectedProduct.internal_reference,
                         sales_description: selectedProduct.sales_description,
                         packing_sizes: [...selectedProduct.packing_sizes],
-                        category: selectedProduct.category,
-                        internal_reference: selectedProduct.internal_reference,
                         uqc: selectedProduct.uqc,
                       });
                       setIsEditing(true);

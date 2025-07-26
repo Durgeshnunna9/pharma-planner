@@ -217,7 +217,8 @@ const CustomersTab = () => {
 
   const filteredCustomers = customers.filter(customer =>
     (customer.company_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.customer_code || "").toLowerCase().includes(searchTerm.toLowerCase())
+    (customer.customer_code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.gstin_number || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

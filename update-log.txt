@@ -16,3 +16,9 @@ Recieved the Web app
 ### 22-07-2025
 - Single product details edit.
 - Filter products according to a category.
+
+### 24-07-2025
+- Added a Subcategory Filter to Product List.
+- Cleaned Landing Page Unwanted data.
+- Added Color code to Subcategory.
+- Removed Search Filter in Manufacturing Order.

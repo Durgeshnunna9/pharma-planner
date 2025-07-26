@@ -13,7 +13,7 @@ interface ManufacturingOrder {
   productGenericName: string;
   brandName: string;
   customerName: string;
-  orderQuantityMl: number;
+  orderQuantityL: number;
   packingSize: string;
   numberOfBottles: number;
   expectedDeliveryDate: string;
@@ -34,7 +34,7 @@ const ProductionTab = () => {
     productGenericName: "",
     brandName: "",
     customerName: "",
-    orderQuantityMl: 0,
+    orderQuantityL: 0,
     packingSize: "",
     numberOfBottles: 0,
     expectedDeliveryDate: "",
@@ -74,7 +74,7 @@ const ProductionTab = () => {
       productGenericName: "",
       brandName: "",
       customerName: "",
-      orderQuantityMl: 0,
+      orderQuantityL: 0,
       packingSize: "",
       numberOfBottles: 0,
       expectedDeliveryDate: "",
@@ -120,16 +120,8 @@ const ProductionTab = () => {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-        <Input
-          placeholder="Search by product name, brand, or batch number..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      
+      
 
       {/* Add Manufacturing Order Form */}
       {showAddForm && (
@@ -185,12 +177,12 @@ const ProductionTab = () => {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="orderQuantityMl">Order Quantity (ml)</Label>
+                <Label htmlFor="orderQuantityL">Order Quantity (L)</Label>
                 <Input
-                  id="orderQuantityMl"
+                  id="orderQuantityL"
                   type="number"
-                  value={newOrder.orderQuantityMl}
-                  onChange={(e) => setNewOrder({...newOrder, orderQuantityMl: Number(e.target.value)})}
+                  value={newOrder.orderQuantityL}
+                  onChange={(e) => setNewOrder({...newOrder, orderQuantityL: Number(e.target.value)})}
                   placeholder="Enter quantity"
                 />
               </div>
@@ -288,7 +280,7 @@ const ProductionTab = () => {
                     </div>
                   </div>
                   <div className="text-right text-sm text-gray-500">
-                    <p>Quantity: {order.orderQuantityMl}ml</p>
+                    <p>Quantity: {order.orderQuantityL}ml</p>
                     <p>Bottles: {order.numberOfBottles}</p>
                     <p>Delivery: {order.expectedDeliveryDate}</p>
                   </div>

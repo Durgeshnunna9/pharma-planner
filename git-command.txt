@@ -1,0 +1,10 @@
+### When u have a remote repo set:
+
+- <git add . > - To add all the Updatedfiles, or else u can use <git add {fileName}>
+
+- < git commit -m "Commit msg" >: Here commit msg is a must.
+
+- <git push > : to push your code to the repo.
+
+
+U can just push your code with these 3 lines.

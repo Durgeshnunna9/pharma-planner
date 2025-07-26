@@ -7,6 +7,7 @@ import CustomersTab from "@/components/CustomersTab";
 import ProductionTab from "@/components/ProductionTab";
 import ShopFloorTab from "@/components/ShopFloorTab";
 import DashboardTab from "@/components/DashboardTab";
+import { Home } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("");
@@ -23,6 +24,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-white">
+      
       <div className="container mx-auto px-4 py-8">
         {/* Company Header */}
         <header className="text-center mb-12">
@@ -34,7 +36,8 @@ const Index = () => {
         {/* Tab Navigation - Dynamic positioning */}
         <div className={`flex justify-center mb-8 ${activeTab ? 'fixed top-0 left-0 right-0 z-50 bg-white shadow-lg py-4' : ''}`}>
           <div className={`grid grid-cols-5 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
-            {tabs.map((tab) => {
+
+          {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <Card
@@ -62,7 +65,7 @@ const Index = () => {
         )}
 
         {/* Welcome Message when no tab is selected */}
-        {!activeTab && (
+        {/* {!activeTab && (
           <div className="text-center mt-16">
             <div className="bg-white rounded-2xl shadow-lg p-12 max-w-2xl mx-auto">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
@@ -76,7 +79,7 @@ const Index = () => {
               </p>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

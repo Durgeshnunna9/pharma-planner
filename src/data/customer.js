@@ -407,6 +407,6 @@ const customers = [
         "dl20b_number": "TG/23/01/2017-26190",
         "dl21b_number": "TG/23/01/2017-26190"
       }
-];
+]
 
 export default customers;
