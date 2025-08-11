@@ -22,3 +22,9 @@ Recieved the Web app
 - Cleaned Landing Page Unwanted data.
 - Added Color code to Subcategory.
 - Removed Search Filter in Manufacturing Order.
+
+###12-08-2025
+- Removed Local Data and connected with real time DB(Supabase)
+- Added a dynamic Home button that appers only when a tab is active. 
+- Through the DB i have populated the frontend data.
+- Removed Bulk import and download of Data for now(Might include later).

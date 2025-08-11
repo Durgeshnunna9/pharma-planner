@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Upload, Search, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "../supabaseClient";
-// import * as XLSX from 'xlsx';
 
-// import initialProducts from "../data/product.js";
+import * as XLSX from 'xlsx';
+
+import initialProducts from "../data/product.js";
 import { saveAs } from 'file-saver';
 import { useRef } from "react";
 
@@ -25,18 +25,19 @@ interface Product {
   sales_description: string;
   packing_sizes: string[];
   uqc: "BTL" | "PCS";
+  
+  
 }
 
 
-
 const ProductsTab = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState(initialProducts);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductDetails, setShowProductDetails] = useState(false);
   const { toast } = useToast();
-  // const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProduct, setNewProduct] = useState({
     externalId: "",
     productName: "",
@@ -102,23 +103,8 @@ const ProductsTab = () => {
 
   });
   
-  useEffect(() => {
-    const loadProducts = async () => {
-      const { data, error } = await supabase
-        .from("product_with_sizes")
-        .select("*");
-  
-      if (error) {
-        console.error("Failed to load products", error);
-      } else {
-        setProducts(data);
-      }
-    };
-  
-    loadProducts();
-  }, []);
 
-  const handleAddProduct = async () => {
+  const handleAddProduct = () => {
     if (!newProduct.externalId || !newProduct.productName || !newProduct.category || !newProduct.subCategory || !newProduct.commonDescription || !newProduct.uqc || !newProduct.salesDescription || !newProduct.packingSizes ||  !newProduct.internalReference || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
       toast({
         title: "Error",
@@ -142,22 +128,8 @@ const ProductsTab = () => {
       taxPercentage: newProduct.taxPercentage,
       // brandNames: [],
     };
-    const { data, error } = await supabase
-      .from("product_with_sizes")
-      .insert([product])
-      .select("*");
-
-    if (error) {
-      console.error("Error inserting product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add product to database",
-        variant: "destructive",
-      });
-    } else {
-      setProducts([...products, data]);
-    }
-        
+    
+    setProducts([...products, product]);
     setNewProduct({
       externalId: "",
       productName: "",
@@ -185,74 +157,73 @@ const ProductsTab = () => {
     setSelectedProduct(product);
     setShowProductDetails(true);
   };
-
-  // const handleDownloadProducts = () => {
-  //   // Prepare data for export (flatten arrays, etc.)
-  //   const exportData = products.map(product => ({
-  //     "External ID": product.external_id,
-  //     "Product Name": product.product_name,
-  //     "Category": product.category,
-  //     "Sub-Category": product.sub_category,
-  //     "Common Description": product.common_description,
-  //     "Internal Reference": product.internal_reference,
-  //     "Sales Description": product.sales_description,
-  //     "Packing Sizes": product.packing_sizes.join(", "),
-  //     "UQC": product.uqc,
-  //   }));
+  const handleDownloadProducts = () => {
+    // Prepare data for export (flatten arrays, etc.)
+    const exportData = products.map(product => ({
+      "External ID": product.external_id,
+      "Product Name": product.product_name,
+      "Category": product.category,
+      "Sub-Category": product.sub_category,
+      "Common Description": product.common_description,
+      "Internal Reference": product.internal_reference,
+      "Sales Description": product.sales_description,
+      "Packing Sizes": product.packing_sizes.join(", "),
+      "UQC": product.uqc,
+    }));
   
-  //   const worksheet = XLSX.utils.json_to_sheet(exportData);
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
   
-  //   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  //   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-  //   saveAs(data, "products.xlsx");
-  // };
-  // const handleImportProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const file = e.target.files?.[0];
-  //   if (!file) return;
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, "products.xlsx");
+  };
+  const handleImportProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
   
-  //   const reader = new FileReader();
-  //   reader.onload = (evt) => {
-  //     const result = evt.target?.result;
-  //     if (!result || typeof result === "string") {
-  //       toast({
-  //         title: "Import Failed",
-  //         description: "Invalid file format.",
-  //         variant: "destructive",
-  //       });
-  //       return;
-  //     }
-  //     const data = new Uint8Array(result);
-  //     const workbook = XLSX.read(data, { type: "array" });
-  //     const sheetName = workbook.SheetNames[0];
-  //     const worksheet = workbook.Sheets[sheetName];
-  //     const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const result = evt.target?.result;
+      if (!result || typeof result === "string") {
+        toast({
+          title: "Import Failed",
+          description: "Invalid file format.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const data = new Uint8Array(result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
   
-  //     // Map the imported data to your product structure
-  //     const importedProducts = jsonData.map((row: any, idx: number) => ({
-  //       external_id: row["External ID"] || `imported-${idx}`,
-  //       product_name: row["Product Name"] || "",
-  //       category: row["Category"] === "Veterinary" ? "Veterinary" : "Human",
-  //       sub_category: row["Sub-Category"] === "Antibiotic" || "Antihelmintic" || "Antihistamine" || "Cough/Cold" || "Digestive/Laxative" || "Electrolyte/Other" || "Vitamin/Supplement" || "Analgesic/Antipyretic",
-  //       common_description: row["Common Description"]|| "",
-  //       internal_reference: row["Internal Reference"] || "",
-  //       sales_description: row["Description"] || "",
-  //       packing_sizes: typeof row["Packing Sizes"] === "string" ? row["Packing Sizes"].split(",").map((s: string) => s.trim()) : [],
-  //       uqc: row["UQC"] || "",
-  //     }));
+      // Map the imported data to your product structure
+      const importedProducts = jsonData.map((row: any, idx: number) => ({
+        external_id: row["External ID"] || `imported-${idx}`,
+        product_name: row["Product Name"] || "",
+        category: row["Category"] === "Veterinary" ? "Veterinary" : "Human",
+        sub_category: row["Sub-Category"] === "Antibiotic" || "Antihelmintic" || "Antihistamine" || "Cough/Cold" || "Digestive/Laxative" || "Electrolyte/Other" || "Vitamin/Supplement" || "Analgesic/Antipyretic",
+        common_description: row["Common Description"]|| "",
+        internal_reference: row["Internal Reference"] || "",
+        sales_description: row["Description"] || "",
+        packing_sizes: typeof row["Packing Sizes"] === "string" ? row["Packing Sizes"].split(",").map((s: string) => s.trim()) : [],
+        uqc: row["UQC"] || "",
+      }));
   
-  //     setProducts([...products, ...importedProducts]);
-  //     toast({
-  //       title: "Import Successful",
-  //       description: `${importedProducts.length} products imported.`,
-  //     });
+      setProducts([...products, ...importedProducts]);
+      toast({
+        title: "Import Successful",
+        description: `${importedProducts.length} products imported.`,
+      });
   
-  //     // Clear file input
-  //     if (fileInputRef.current) fileInputRef.current.value = "";
-  //   };
-  //   reader.readAsArrayBuffer(file);
-  // };
+      // Clear file input
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsArrayBuffer(file);
+  };
   
   const filteredProducts = products.filter(product =>
     // Parent category filter
@@ -276,29 +247,29 @@ const ProductsTab = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Products Management</h2>
         <div className="flex gap-3">
-        {/* <input }
+        <input
             type="file"
             accept=".xlsx, .xls"
             ref={fileInputRef}
             style={{ display: "none" }}
             onChange={handleImportProducts}
-        />*/}
-          {/* <Button
+          />
+          <Button
             variant="outline"
             onClick={handleDownloadProducts}
             className="flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
             Download Product Data
-          </Button> */}
-          {/* <Button
+          </Button>
+          <Button
             variant="outline"
             onClick={() => fileInputRef.current && fileInputRef.current.click()}
             className="flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
             Import Excel
-          </Button> */}
+          </Button>
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
@@ -328,15 +299,6 @@ const ProductsTab = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="externalId">External ID *</Label>
-                <Input
-                  id="externalId"
-                  value={newProduct.externalId}
-                  onChange={(e) => setNewProduct({...newProduct, externalId: e.target.value})}
-                  placeholder="Enter external ID"
-                />
-              </div>
               <div>
                 <Label htmlFor="genericName">Product Name *</Label>
                 <Input

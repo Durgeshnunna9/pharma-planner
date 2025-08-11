@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Upload, Search, Building, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import initialCustomers from "../data/customer.js";
+import { supabase } from "../supabaseClient";
+// import initialCustomers from "../data/customer.js";
 import { useRef } from "react";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -26,14 +27,14 @@ interface Customer {
 }
 
 const CustomersTab = () => {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sameAsBinding, setSameAsBinding] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // const fileInputRef = useRef<HTMLInputElement>(null);
   const [gstLocked, setGstLocked] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     customer_code: "",
@@ -56,7 +57,21 @@ const CustomersTab = () => {
     billing_address: '',
     shipping_address: '',
   });
-
+  useEffect(() => {
+    const loadCustomers = async () => {
+      const { data, error } = await supabase
+        .from("customer")
+        .select("*");
+  
+      if (error) {
+        console.error("Failed to load products", error);
+      } else {
+        setCustomers(data);
+      }
+    };
+  
+    loadCustomers();
+  }, []);
   const handleGstinLookup = async () => {
     const gstin = newCustomer.gstin_number.trim();
     if (!gstin) {
@@ -104,7 +119,7 @@ const CustomersTab = () => {
     }
   };
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!newCustomer.company_name || !newCustomer.customer_code) {
       toast({
         title: "Error",
@@ -138,7 +153,15 @@ const CustomersTab = () => {
       shipping_address: "",
     });
     setShowAddForm(false);
-    
+    const { data, error } = await supabase
+    .from("customer")
+    .insert(customer);
+
+    if (error) {
+      console.error("Failed to add customer", error);
+    } else {
+      setCustomers([...customers, data]);
+    }
     toast({
       title: "Success",
       description: "Customer added successfully",
@@ -149,71 +172,71 @@ const CustomersTab = () => {
     setSelectedCustomer(customer);
     setShowCustomerDetails(true);
   };
-  const handleDownloadCustomers = () => {
-    // Prepare data for export (flatten arrays, etc.)
-    const exportData = customers.map(customer => ({
-      "Customer Code": customer.customer_code,
-      "Customer Name": customer.customer_name,
-      "GSTIN Number": customer.gstin_number,
-      "Company Name": customer.company_name,
-      "20B DL Number": customer.dl20b_number,
-      "21B DL Number": customer.dl21b_number,
-      "Billing Address": customer.billing_address,
-      "Shipping Address": customer.shipping_address,
-    }));
+  // const handleDownloadCustomers = () => {
+  //   // Prepare data for export (flatten arrays, etc.)
+  //   const exportData = customers.map(customer => ({
+  //     "Customer Code": customer.customer_code,
+  //     "Customer Name": customer.customer_name,
+  //     "GSTIN Number": customer.gstin_number,
+  //     "Company Name": customer.company_name,
+  //     "20B DL Number": customer.dl20b_number,
+  //     "21B DL Number": customer.dl21b_number,
+  //     "Billing Address": customer.billing_address,
+  //     "Shipping Address": customer.shipping_address,
+  //   }));
   
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+  //   const worksheet = XLSX.utils.json_to_sheet(exportData);
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
   
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "customers.xlsx");
-  };
-  const handleImportCustomers = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  //   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  //   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+  //   saveAs(data, "customers.xlsx");
+  // };
+  // const handleImportCustomers = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
   
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const result = evt.target?.result;
-      if (!result || typeof result === "string") {
-        toast({
-          title: "Import Failed",
-          description: "Invalid file format.",
-          variant: "destructive",
-        });
-        return;
-      }
-      const data = new Uint8Array(result);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+  //   const reader = new FileReader();
+  //   reader.onload = (evt) => {
+  //     const result = evt.target?.result;
+  //     if (!result || typeof result === "string") {
+  //       toast({
+  //         title: "Import Failed",
+  //         description: "Invalid file format.",
+  //         variant: "destructive",
+  //       });
+  //       return;
+  //     }
+  //     const data = new Uint8Array(result);
+  //     const workbook = XLSX.read(data, { type: "array" });
+  //     const sheetName = workbook.SheetNames[0];
+  //     const worksheet = workbook.Sheets[sheetName];
+  //     const jsonData = XLSX.utils.sheet_to_json(worksheet);
   
-      // Map the imported data to your customer structure
-      const importedCustomers = jsonData.map((row: any, idx: number) => ({
-        customer_code: row["Customer Code"] || `imported-${idx}`,
-        customer_name: row["Customer Name"] || "",
-        gstin_number: row["GSTIN Number"] || "",
-        company_name: row["Company Name"] || "",
-        dl20b_number: row["20B DL Number"] || "",
-        dl21b_number: row["21B DL Number"] || "",
-        billing_address: row["Billing Address"] || "",
-        shipping_address: row["Shipping Address"] || "",
-      }));
+  //     // Map the imported data to your customer structure
+  //     const importedCustomers = jsonData.map((row: any, idx: number) => ({
+  //       customer_code: row["Customer Code"] || `imported-${idx}`,
+  //       customer_name: row["Customer Name"] || "",
+  //       gstin_number: row["GSTIN Number"] || "",
+  //       company_name: row["Company Name"] || "",
+  //       dl20b_number: row["20B DL Number"] || "",
+  //       dl21b_number: row["21B DL Number"] || "",
+  //       billing_address: row["Billing Address"] || "",
+  //       shipping_address: row["Shipping Address"] || "",
+  //     }));
   
-      setCustomers([...customers, ...importedCustomers]);
-      toast({
-        title: "Import Successful",
-        description: `${importedCustomers.length} customers imported.`,
-      });
+  //     setCustomers([...customers, ...importedCustomers]);
+  //     toast({
+  //       title: "Import Successful",
+  //       description: `${importedCustomers.length} customers imported.`,
+  //     });
   
-      // Clear file input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-    reader.readAsArrayBuffer(file);
-  };
+  //     // Clear file input
+  //     if (fileInputRef.current) fileInputRef.current.value = "";
+  //   };
+  //   reader.readAsArrayBuffer(file);
+  // };
 
   const filteredCustomers = customers.filter(customer =>
     (customer.company_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -226,7 +249,7 @@ const CustomersTab = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Customers Management</h2>
         <div className="flex gap-3">
-        <input
+        {/* <input
             type="file"
             accept=".xlsx, .xls"
             ref={fileInputRef}
@@ -248,7 +271,7 @@ const CustomersTab = () => {
           >
             <Upload className="w-4 h-4" />
             Import Excel
-          </Button>
+          </Button> */}
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
