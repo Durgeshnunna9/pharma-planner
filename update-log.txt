@@ -28,3 +28,9 @@ Recieved the Web app
 - Added a dynamic Home button that appers only when a tab is active. 
 - Through the DB i have populated the frontend data.
 - Removed Bulk import and download of Data for now(Might include later).
+
+###13-08-2025
+- Added filter condition to ProductsTab.
+- Live data is getting shown in the webpage.
+- CRUD Operations integrated.
+- Added delete button for each product or customer, to delete or edit a single entity at a time.

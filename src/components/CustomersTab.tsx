@@ -64,7 +64,7 @@ const CustomersTab = () => {
         .select("*");
   
       if (error) {
-        console.error("Failed to load products", error);
+        console.error("Failed to load customer", error);
       } else {
         setCustomers(data);
       }
@@ -153,19 +153,19 @@ const CustomersTab = () => {
       shipping_address: "",
     });
     setShowAddForm(false);
-    const { data, error } = await supabase
-    .from("customer")
-    .insert(customer);
+    // const { data, error } = await supabase
+    // .from("customer")
+    // .insert(customer);
 
-    if (error) {
-      console.error("Failed to add customer", error);
-    } else {
-      setCustomers([...customers, data]);
-    }
-    toast({
-      title: "Success",
-      description: "Customer added successfully",
-    });
+    // if (error) {
+    //   console.error("Failed to add customer", error);
+    // } else {
+    //   setCustomers([...customers, data]);
+    // }
+    // toast({
+    //   title: "Success",
+    //   description: "Customer added successfully",
+    // });
   };
 
   const handleCustomerClick = (customer: Customer) => {
@@ -311,13 +311,7 @@ const CustomersTab = () => {
                 <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md w-12 h-10" type="button" onClick={handleGstinLookup}>
                   <Search className="w-4 h-4" />
                 </button>
-                <Button
-                  type="button"
-                  onClick={() => setGstLocked(false)}
-                  className="ml-2 bg-violet-900 hover:bg-purple-400 text-white px-4 py-2 rounded-md w-15 h-10"
-                >
-                  Edit Fields
-                </Button>
+                
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -578,15 +572,43 @@ const CustomersTab = () => {
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
                 {isEditing ? (
-                  <>
+                  <div>
                     <Button
                       className="bg-green-500 hover:bg-green-600"
-                      onClick={() => {
-                        // Save changes
+                      onClick= {async () => {
+                        const { error: customerError } = await supabase
+                          .from("customer")
+                          .update({
+                            company_name: editForm.company_name,
+                            customer_code: editForm.customer_code,
+                            gstin_number: editForm.gstin_number,
+                            dl20b_number: editForm.dl20b_number,
+                            dl21b_number: editForm.dl21b_number,
+                            billing_address: editForm.billing_address,
+                            shipping_address: editForm.shipping_address,
+                          })
+                          .eq("id", selectedCustomer.id)
+                        if(customerError){
+                          console.error(customerError);
+                          toast({ title: "Error", description: "Failed to update customer.", variant: "destructive" });
+                          return;
+                        }
+                        
+                        const { data: updatedCustomer, error: fetchError } = await supabase
+                          .from("customer")
+                          .select("*")
+                          .eq("customer_code", editForm.customer_code)
+                          .single();
+
+                        if (fetchError) {
+                          console.error(fetchError);
+                          toast({ title: "Error", description: "Failed to reload customer data." });
+                          return;
+                        }
                         setCustomers(customers.map(c =>
-                          c.id === selectedCustomer.id ? { ...c, ...editForm } : c
+                          c.customer_code === editForm.customer_code ? updatedCustomer : c
                         ));
-                        setSelectedCustomer({ ...selectedCustomer, ...editForm });
+                        setSelectedCustomer(updatedCustomer);
                         setIsEditing(false);
                         toast({ title: "Customer updated", description: "Customer details updated successfully." });
                       }}
@@ -596,26 +618,55 @@ const CustomersTab = () => {
                     <Button variant="outline" onClick={() => setIsEditing(false)}>
                       Cancel
                     </Button>
-                  </>
+                  </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditForm({
-                        customer_code: selectedCustomer.customer_code,
-                        customer_name: selectedCustomer.customer_name,
-                        gstin_number: selectedCustomer.gstin_number,
-                        company_name: selectedCustomer.company_name,
-                        dl20b_number: selectedCustomer.dl20b_number,
-                        dl21b_number: selectedCustomer.dl21b_number,
-                        billing_address: selectedCustomer.billing_address,
-                        shipping_address: selectedCustomer.shipping_address,
-                      });
-                      setIsEditing(true);
-                    }}
-                  >
-                    Edit Customer
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditForm({
+                          customer_code: selectedCustomer.customer_code,
+                          customer_name: selectedCustomer.customer_name,
+                          gstin_number: selectedCustomer.gstin_number,
+                          company_name: selectedCustomer.company_name,
+                          dl20b_number: selectedCustomer.dl20b_number,
+                          dl21b_number: selectedCustomer.dl21b_number,
+                          billing_address: selectedCustomer.billing_address,
+                          shipping_address: selectedCustomer.shipping_address,
+                        });
+                        setIsEditing(true);
+                      }}
+                    >
+                      Edit Customer
+                    </Button>
+                    {/* DELETE BUTTON */}
+                    <Button
+                      className="bg-red-500 hover:bg-red-600"
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to delete this customer?")) return;
+
+                        // Delete customer
+                        const { error } = await supabase
+                          .from("customer")
+                          .delete()
+                          .eq("customer_code", selectedCustomer.customer_code);
+
+                        if (error) {
+                          console.error(error);
+                          toast({ title: "Error", description: "Failed to delete customer." });
+                          return;
+                        }
+
+                        // Update local state
+                        setCustomers(customers.filter(p => p.customer_code !== selectedCustomer.customer_code));
+                        setShowCustomerDetails(false);
+                        toast({ title: "Deleted", description: "customer deleted successfully." });
+                      }}
+                    >
+                      Delete Customer
+                    </Button>
+                  </>
+                  
                 )}
               </div>
             </div>

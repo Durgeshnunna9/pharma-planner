@@ -119,7 +119,16 @@ const ProductsTab = () => {
   }, []);
 
   const handleAddProduct = async () => {
-    if (!newProduct.externalId || !newProduct.productName || !newProduct.category || !newProduct.subCategory || !newProduct.commonDescription || !newProduct.uqc || !newProduct.salesDescription || !newProduct.packingSizes ||  !newProduct.internalReference || !newProduct.hsnCode || !newProduct.taxPercentage || !newProduct.primaryUnit) {
+    if (
+      !newProduct.externalId ||
+      !newProduct.productName ||
+      !newProduct.category ||
+      !newProduct.subCategory ||
+      !newProduct.salesDescription ||
+      !newProduct.packingSizes ||
+      !newProduct.hsnCode ||
+      !newProduct.taxPercentage 
+    ) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -127,37 +136,50 @@ const ProductsTab = () => {
       });
       return;
     }
-
-    const product = {
-      external_id: newProduct.externalId,
-      product_name: newProduct.productName,
-      category: newProduct.category,
-      sub_category: newProduct.subCategory,
-      common_description: newProduct.commonDescription,
-      internal_reference: newProduct.internalReference,
-      sales_description: newProduct.salesDescription,
-      packing_sizes: newProduct.packingSizes.filter(s => s.trim()!== ""),
-      uqc: newProduct.uqc,
-      hsnCode: newProduct.hsnCode,
-      taxPercentage: newProduct.taxPercentage,
-      // brandNames: [],
-    };
-    const { data, error } = await supabase
-      .from("product_with_sizes")
-      .insert([product])
-      .select("*");
-
-    if (error) {
-      console.error("Error inserting product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add product to database",
-        variant: "destructive",
-      });
-    } else {
-      setProducts([...products, data]);
+  
+    // 1️⃣ Insert product
+    const { data: productData, error: productError } = await supabase
+      .from("products")
+      .insert([{
+        external_id: newProduct.externalId,
+        product_name: newProduct.productName,
+        category: newProduct.category,
+        sub_category: newProduct.subCategory,
+        sales_description: newProduct.salesDescription,
+      }])
+      .select();
+  
+    if (productError) {
+      console.error(productError);
+      toast({ title: "Error", description: "Failed to add product", variant: "destructive" });
+      return;
     }
-        
+  
+    // 2️⃣ Insert packing sizes
+    const packingSizeRows = newProduct.packingSizes
+      .filter(s => s.trim() !== "")
+      .map(size => ({
+        product_external_id: productData[0].external_id,
+        size
+      }));
+  
+    const { error: packingError } = await supabase
+      .from("packing_sizes")
+      .insert(packingSizeRows);
+  
+    if (packingError) {
+      console.error(packingError);
+      toast({ title: "Error", description: "Failed to add packing sizes", variant: "destructive" });
+      return;
+    }
+  
+    // 3️⃣ Update local state
+    setProducts([...products, {
+      ...productData[0],
+      packing_sizes: newProduct.packingSizes
+    }]);
+  
+    // 4️⃣ Reset form
     setNewProduct({
       externalId: "",
       productName: "",
@@ -170,16 +192,16 @@ const ProductsTab = () => {
       uqc: "BTL",
       hsnCode: "",
       taxPercentage: 0,
-      primaryUnit: "",
-      
+      primaryUnit: ""
     });
     setShowAddForm(false);
-
+  
     toast({
       title: "Success",
-      description: "Product added successfully",
+      description: "Product added successfully"
     });
   };
+  
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
@@ -256,10 +278,11 @@ const ProductsTab = () => {
   
   const filteredProducts = products.filter(product =>
     // Parent category filter
-    (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter : true) &&
+    (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter: true) &&
+
+     // Subcategory filter (only if subCategoryFilter is not empty)
+     (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
     
-    // Subcategory filter (only if subCategoryFilter is not empty)
-    (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
     
     // Search match
     (
@@ -269,7 +292,61 @@ const ProductsTab = () => {
       product.internal_reference.toLowerCase().includes(searchTerm.toLowerCase())
     )    
   );
+
+  // const filteredProducts = async () => {
+  //   let query = supabase
+  //     .from("product_with_sizes") // your main table name
+  //     .select("*");
   
+  //   // Parent category filter
+  //   if (parentCategoryFilter !== "all") {
+  //     query = query.eq("category", parentCategoryFilter);
+  //   }
+  
+  //   // Subcategory filter
+  //   if (subCategoryFilter) {
+  //     query = query.eq("sub_category", subCategoryFilter);
+  //   }
+  
+  //   // Search filter (case-insensitive match in multiple fields)
+  //   if (searchTerm) {
+  //     query = query.or(
+  //       `product_name.ilike.%${searchTerm}%,` +
+  //       `sales_description.ilike.%${searchTerm}%,` +
+  //       `external_id.ilike.%${searchTerm}%,` +
+  //       `internal_reference.ilike.%${searchTerm}%`
+  //     );
+  //   }
+  
+  //   // Sorting (optional)
+  //   query = query.order("product_name", { ascending: true });
+  
+  //   // Run query
+  //   const { data, error } = await query;
+  
+  //   if (error) {
+  //     console.error("Error fetching filtered products:", error);
+  //     return [];
+  //   }
+  
+  //   console.log("Filtered products:", data);
+  //   return data;
+  // };
+  
+  // const testQuery = async () => {
+  //   const { data, error } = await supabase
+  //     .from("products") // make sure this is exactly your table name
+  //     .select("*") // get everything
+  //     .limit(2); // limit for testing
+  
+  //   if (error) {
+  //     console.error("Error:", error);
+  //   } else {
+  //     console.log("Test data:", data);
+  //   }
+  // };
+  
+  // testQuery();
 
   return (
     <div className="space-y-6">
@@ -451,13 +528,15 @@ const ProductsTab = () => {
               </Button>
             </div>
             <div>
-              <Label htmlFor="primaryUnit">Primary Unit</Label>
-              <Input
-                id="primaryUnit"
-                value={newProduct.primaryUnit}
-                onChange={e => setNewProduct({ ...newProduct, primaryUnit: e.target.value })}
-                placeholder="ml, tablets, etc."
-              />
+              <div>
+                <Label htmlFor="primaryUnit">Primary Unit</Label>
+                <Input
+                  id="primaryUnit"
+                  value={newProduct.primaryUnit}
+                  onChange={e => setNewProduct({ ...newProduct, primaryUnit: e.target.value })}
+                  placeholder="ml, tablets, etc."
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -580,14 +659,6 @@ const ProductsTab = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Product Details</span>
-              {/* <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowProductDetails(false)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button> */}
             </DialogTitle>
           </DialogHeader>
           
@@ -764,44 +835,168 @@ const ProductsTab = () => {
               <div className="flex gap-3 pt-4 border-t">
                 {isEditing ? (
                   <>
+                    {/* SAVE BUTTON */}
                     <Button
                       className="bg-green-500 hover:bg-green-600"
-                      onClick={() => {
-                        // Save changes
+                      onClick={async () => {
+                        // 1️⃣ Update product
+                        const { error: productError } = await supabase
+                          .from("products")
+                          .update({
+                            product_name: editForm.product_name,
+                            category: editForm.category,
+                            sub_category: editForm.sub_category,
+                            common_description: editForm.common_description,
+                            internal_reference: editForm.internal_reference,
+                            sales_description: editForm.sales_description,
+                            uqc: editForm.uqc
+                          })
+                          .eq("external_id", editForm.external_id);
+
+                        if (productError) {
+                          console.error(productError);
+                          toast({ title: "Error", description: "Failed to update product." });
+                          return;
+                        }
+
+                        // 2️⃣ Update packing_sizes
+                        const { error: deleteError } = await supabase
+                          .from("packing_sizes")
+                          .delete()
+                          .eq("product_external_id", editForm.external_id);
+
+                        if (deleteError) {
+                          console.error(deleteError);
+                          toast({ title: "Error", description: "Failed to update packing sizes." });
+                          return;
+                        }
+
+                        const sizeInserts = editForm.packing_sizes
+                          .filter(size => size.trim() !== "")
+                          .map(size => ({
+                            product_external_id: editForm.external_id,
+                            size
+                          }));
+
+                        const { error: insertError } = await supabase
+                          .from("packing_sizes")
+                          .insert(sizeInserts);
+
+                        if (insertError) {
+                          console.error(insertError);
+                          toast({ title: "Error", description: "Failed to add packing sizes." });
+                          return;
+                        }
+
+                        // 3️⃣ Refresh from view
+                        const { data: updatedProduct, error: fetchError } = await supabase
+                          .from("product_with_sizes")
+                          .select("*")
+                          .eq("external_id", editForm.external_id)
+                          .single();
+
+                        if (fetchError) {
+                          console.error(fetchError);
+                          toast({ title: "Error", description: "Failed to reload product data." });
+                          return;
+                        }
+
                         setProducts(products.map(p =>
-                          p.external_id === selectedProduct.external_id ? { ...p, ...editForm } : p
+                          p.external_id === editForm.external_id ? updatedProduct : p
                         ));
-                        setSelectedProduct({ ...selectedProduct, ...editForm });
+                        setSelectedProduct(updatedProduct);
                         setIsEditing(false);
                         toast({ title: "Product updated", description: "Product details updated successfully." });
                       }}
                     >
                       Save
                     </Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+
+                    {/* CANCEL BUTTON */}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditForm({
+                          external_id: selectedProduct.external_id,
+                          product_name: selectedProduct.product_name,
+                          category: selectedProduct.category,
+                          sub_category: selectedProduct.sub_category,
+                          common_description: selectedProduct.common_description,
+                          internal_reference: selectedProduct.internal_reference,
+                          sales_description: selectedProduct.sales_description,
+                          packing_sizes: [...selectedProduct.packing_sizes],
+                          uqc: selectedProduct.uqc
+                        });
+                      }}
+                    >
                       Cancel
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditForm({
-                        external_id:selectedProduct.external_id,
-                        product_name: selectedProduct.product_name,
-                        category: selectedProduct.category,
-                        sub_category: selectedProduct.sub_category,
-                        common_description: selectedProduct.common_description,
-                        internal_reference: selectedProduct.internal_reference,
-                        sales_description: selectedProduct.sales_description,
-                        packing_sizes: [...selectedProduct.packing_sizes],
-                        uqc: selectedProduct.uqc,
-                      });
-                      setIsEditing(true);
-                    }}
-                  >
-                    Edit Product
-                  </Button>
+                  <>
+                    {/* EDIT BUTTON */}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditForm({
+                          external_id: selectedProduct.external_id,
+                          product_name: selectedProduct.product_name,
+                          category: selectedProduct.category,
+                          sub_category: selectedProduct.sub_category,
+                          common_description: selectedProduct.common_description,
+                          internal_reference: selectedProduct.internal_reference,
+                          sales_description: selectedProduct.sales_description,
+                          packing_sizes: [...selectedProduct.packing_sizes],
+                          uqc: selectedProduct.uqc
+                        });
+                        setIsEditing(true);
+                      }}
+                    >
+                      Edit Product
+                    </Button>
+
+                    {/* DELETE BUTTON */}
+                    <Button
+                      className="bg-red-500 hover:bg-red-600"
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to delete this product?")) return;
+
+                        // 1️⃣ Delete packing_sizes first
+                        const { error: packingError } = await supabase
+                          .from("packing_sizes")
+                          .delete()
+                          .eq("product_external_id", selectedProduct.external_id);
+
+                        if (packingError) {
+                          console.error(packingError);
+                          toast({ title: "Error", description: "Failed to remove packing sizes." });
+                          return;
+                        }
+
+                        // 2️⃣ Delete product
+                        const { error: productError } = await supabase
+                          .from("products")
+                          .delete()
+                          .eq("external_id", selectedProduct.external_id);
+
+                        if (productError) {
+                          console.error(productError);
+                          toast({ title: "Error", description: "Failed to delete product." });
+                          return;
+                        }
+
+                        // 3️⃣ Update local state
+                        setProducts(products.filter(p => p.external_id !== selectedProduct.external_id));
+                        setShowProductDetails(false);
+
+                        toast({ title: "Deleted", description: "Product deleted successfully." });
+                      }}
+                    >
+                      Delete Product
+                    </Button>
+
+                  </>
                 )}
               </div>
             </div>
