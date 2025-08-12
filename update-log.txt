@@ -29,8 +29,12 @@ Recieved the Web app
 - Through the DB i have populated the frontend data.
 - Removed Bulk import and download of Data for now(Might include later).
 
-###13-08-2025
+###12-08-2025
 - Added filter condition to ProductsTab.
 - Live data is getting shown in the webpage.
 - CRUD Operations integrated.
 - Added delete button for each product or customer, to delete or edit a single entity at a time.
+
+###13-08-2025
+- Cleaned Manufacturing Order Form.
+- Connected Manufacturing Order form to DB.

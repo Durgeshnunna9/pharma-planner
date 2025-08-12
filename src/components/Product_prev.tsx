@@ -228,9 +228,10 @@ const ProductsTab = () => {
   const filteredProducts = products.filter(product =>
     // Parent category filter
     (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter : true) &&
+
+     // Subcategory filter (only if subCategoryFilter is not empty)
+     (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
     
-    // Subcategory filter (only if subCategoryFilter is not empty)
-    (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
     
     // Search match
     (
@@ -310,7 +311,7 @@ const ProductsTab = () => {
               </div>
               <div>
                 <Label htmlFor="category">Category *</Label>
-                <Select value={newProduct.category} onValueChange={(value: "Human" | "Veterinary") => setNewProduct({...newProduct, category: value})}>
+                <Select value={newProduct.category} onValueChange={(value: 'Human' | 'Veterinary') => setNewProduct({...newProduct, category: value})}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

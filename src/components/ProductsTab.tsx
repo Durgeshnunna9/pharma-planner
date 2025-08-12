@@ -278,7 +278,7 @@ const ProductsTab = () => {
   
   const filteredProducts = products.filter(product =>
     // Parent category filter
-    (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter: true) &&
+    (parentCategoryFilter !== "all" ? product.category === parentCategoryFilter : true) &&
 
      // Subcategory filter (only if subCategoryFilter is not empty)
      (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
