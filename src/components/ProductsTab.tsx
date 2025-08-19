@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Upload, Search, X, Download } from "lucide-react";
+import { Plus, Upload, Search, X, Download, Pill } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../supabaseClient";
 // import * as XLSX from 'xlsx';
@@ -282,7 +282,6 @@ const ProductsTab = () => {
 
      // Subcategory filter (only if subCategoryFilter is not empty)
      (!subCategoryFilter || product["sub_category"] === subCategoryFilter) &&
-    
     
     // Search match
     (
@@ -621,8 +620,11 @@ const ProductsTab = () => {
           filteredProducts.map((product) => (
             <Card key={product.external_id} className="hover:shadow-md transition-shadow" onClick={() => handleProductClick(product)}>
               <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <div className="mt-3 mr-3 p-3 bg-gray-100 rounded-xl">
+                    <Pill className="w-6 h-7"/>
+                  </div>
+                  <div className="flex-1 ">
                     <h3 className="text-lg font-semibold text-gray-900">{product.product_name}</h3>
                     <p className="text-gray-600 mt-1 max-w-5xl">{product.sales_description}</p>
                     <div className="flex flex-wrap gap-2 mt-3">

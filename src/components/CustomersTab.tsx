@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Upload, Search, Building, X, Download } from "lucide-react";
+import { Plus, Upload, Search, Building,X, Download, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "../supabaseClient";
@@ -416,9 +416,9 @@ const CustomersTab = () => {
               onClick={() => handleCustomerClick(customer)}
             >
               <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <Building className="w-6 h-6 text-green-600" />
+                <div className="flex items-center gap-4">
+                  <div className="mt-3 p-3 bg-gray-100 rounded-xl">
+                    <Building2 className="w-6 h-9"/>
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">{customer.company_name}</h3>
