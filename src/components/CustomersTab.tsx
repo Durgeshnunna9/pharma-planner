@@ -471,7 +471,7 @@ const CustomersTab = () => {
             <div className="space-y-6">
               {/* Customer Header */}
               <div className="border-b pb-4">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
                   {isEditing ? (
                     <Input
                       value={editForm.company_name}
