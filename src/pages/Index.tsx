@@ -1,29 +1,39 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
-  Package,
-  Users,
+  PackageOpen ,
+  ContactRound ,
+  Boxes,
   Factory,
   Monitor,
   BarChart3,
-  HomeIcon
+  HomeIcon,
+  IdCard ,
+  IdCardLanyard ,
+  Smile ,
+  ShieldUser,
 } from "lucide-react";
 import ProductsTab from "@/components/ProductsTab";
 import CustomersTab from "@/components/CustomersTab";
 import ProductionTab from "@/components/ProductionTab";
 import ShopFloorTab from "@/components/ShopFloorTab";
 import DashboardTab from "@/components/DashboardTab";
+import UsersTab from "@/components/UsersTab";
 import { Button } from "@/components/ui/button";
+import prodImg from "../components/assests/robotic-arm.png"
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("");
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab },
-    { id: "products", label: "Products", icon: Package, component: ProductsTab },
-    { id: "customers", label: "Customers", icon: Users, component: CustomersTab },
+    { id: "products", label: "Products", icon: PackageOpen , component: ProductsTab },
+    { id: "customers", label: "Customers", icon: Smile , component: CustomersTab },
     { id: "production", label: "Production", icon: Factory, component: ProductionTab },
     { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab },
+    { id: "users", label: "Users", icon: IdCardLanyard  , component: UsersTab },
+    
+    
   ];
 
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component;
@@ -41,7 +51,7 @@ const Index = () => {
         {/* Tab Navigation - Dynamic positioning */}
         <div className={`flex flex-col items-center mb-8 ${activeTab ? 'fixed top-0 left-0 right-0 z-50 bg-white shadow-lg py-4' : ''}`}>
           {/* Tabs */}
-          <div className={`grid grid-cols-5 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
+          <div className={`grid grid-cols-6 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -68,8 +78,8 @@ const Index = () => {
                 className="cursor-pointer transition-all duration-300 hover:scale-105 p-6 text-center min-w-[120px] bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-sm "
                 onClick={() => setActiveTab("")}
               >
-                <HomeIcon className="mx-auto  w-15 h-15" />
-                <span className="font-semibold text-sm">Home</span>
+                <HomeIcon className="mx-auto  w-18 h-18" />
+                <span className=" text-lg pb-1">Home</span>
               </Button>
             </div>
           )}

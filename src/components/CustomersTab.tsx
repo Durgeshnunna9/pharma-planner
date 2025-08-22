@@ -289,7 +289,7 @@ const CustomersTab = () => {
           placeholder="Search customers by company name or code..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
+          className="pl-8"
         />
       </div>
 

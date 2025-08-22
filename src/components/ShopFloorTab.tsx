@@ -9,23 +9,29 @@ import { Search, MessageSquare, Package2, Filter, Calendar, User, Hash } from "l
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../supabaseClient";
 
+interface Notes{
+  content: string;
+  note_id: string;
+}
+interface PackingGroup {
+  packing_size: string;
+  no_of_bottles: number;
+}
+
 interface ShopFloorOrder {
-  id: string;
   order_id: string;
-  genericName: string;
-  brandName: string;
-  customerName: string;
-  batchNumber: string;
-  qtyLiters: number;
-  qtyPackingSize: string;
-  primaryUnits: number;
+  product_name: string;
+  brand_name: string;
+  customer_name: string;
+  batch_number: string;
   status: "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch";
-  notes: string[];
-  expectedDeliveryDate: string;
-  manufacturingDate: string;
-  expiryDate: string;
+  expected_delivery_date: string;
+  manufacturing_date: string;
+  expiry_date: string;
   category: "Human" | "Veterinary";
-  orderQuantity: number;
+  order_quantity: number;
+  packing_groups: PackingGroup[];
+  notes: Notes[];
 }
 
 const ShopFloorTab = () => {
@@ -43,127 +49,40 @@ const ShopFloorTab = () => {
     const fetchOrders = async () => {
       setIsLoading(true);
       try {
-        // First, try to use the view if it exists
-        let { data: viewData, error: viewError } = await supabase
+        const { data, error } = await supabase
           .from("manufacturing_orders_with_packing")
           .select("*")
           .not("batch_number", "is", null)
           .not("batch_number", "eq", "unassigned");
-
-        if (viewError) {
-          console.log("View not available, trying direct table queries:", viewError.message);
-          
-          // Fallback: Query individual tables and join manually
-          const { data: ordersData, error: ordersError } = await supabase
-            .from("manufacturing_orders")
-            .select(`
-              order_id,
-              generic_name,
-              brand_name,
-              customer_name,
-              batch_number,
-              qty_liters,
-              qty_packing_size,
-              primary_units,
-              status,
-              expected_delivery_date,
-              manufacturing_date,
-              expiry_date,
-              category,
-              order_quantity
-            `)
-            .not("batch_number", "is", null)
-            .not("batch_number", "eq", "unassigned");
-
-          if (ordersError) {
-            console.error("Error fetching orders:", ordersError);
-            toast({
-              title: "Error",
-              description: "Failed to load orders from database",
-              variant: "destructive"
-            });
-            return;
-          }
-
-          if (ordersData && ordersData.length > 0) {
-            // Fetch notes for each order
-            const ordersWithNotes = await Promise.all(
-              ordersData.map(async (order) => {
-                const { data: notesData, error: notesError } = await supabase
-                  .from("notes")
-                  .select("note_text, created_at")
-                  .eq("manufacturing_order_id", order.order_id);
-
-                let notes: string[] = [];
-                if (!notesError && notesData) {
-                  notes = notesData.map(note => 
-                    `${new Date(note.created_at).toLocaleString()}: ${note.note_text}`
-                  );
-                }
-
-                return {
-                  id: order.order_id,
-                  order_id: order.order_id,
-                  genericName: order.generic_name || "",
-                  brandName: order.brand_name || "",
-                  customerName: order.customer_name || "",
-                  batchNumber: order.batch_number || "",
-                  qtyLiters: order.qty_liters || 0,
-                  qtyPackingSize: order.qty_packing_size || "",
-                  primaryUnits: order.primary_units || 0,
-                  status: order.status || "Under Production",
-                  notes: notes,
-                  expectedDeliveryDate: order.expected_delivery_date || "",
-                  manufacturingDate: order.manufacturing_date || "",
-                  expiryDate: order.expiry_date || "",
-                  category: order.category || "Human",
-                  orderQuantity: order.order_quantity || 0
-                };
-              })
-            );
-
-            setShopFloorOrders(ordersWithNotes);
-          } else {
-            setShopFloorOrders([]);
-          }
-        } else if (viewData && viewData.length > 0) {
-          // Use the view data directly
-          const transformedOrders = viewData.map((order: any) => ({
-            id: order.order_id || order.id,
-            order_id: order.order_id || order.id,
-            genericName: order.generic_name || order.genericName || "",
-            brandName: order.brand_name || order.brandName || "",
-            customerName: order.customer_name || order.customerName || "",
-            batchNumber: order.batch_number || order.batchNumber || "",
-            qtyLiters: order.qty_liters || order.qtyLiters || 0,
-            qtyPackingSize: order.qty_packing_size || order.qtyPackingSize || "",
-            primaryUnits: order.primary_units || order.primaryUnits || 0,
-            status: order.status || "Under Production",
-            notes: order.notes || [],
-            expectedDeliveryDate: order.expected_delivery_date || order.expectedDeliveryDate || "",
-            manufacturingDate: order.manufacturing_date || order.manufacturingDate || "",
-            expiryDate: order.expiry_date || order.expiryDate || "",
-            category: order.category || "Human",
-            orderQuantity: order.order_quantity || order.orderQuantity || 0
-          }));
-          setShopFloorOrders(transformedOrders);
-        } else {
+  
+        if (error) {
+          console.error("Error fetching orders:", error.message);
+          toast({
+            title: "Error",
+            description: "Failed to load orders from database",
+            variant: "destructive",
+          });
           setShopFloorOrders([]);
+          return;
         }
-      } catch (error) {
-        console.error("Error fetching orders:", error);
+  
+        setShopFloorOrders(data ?? []);
+      } catch (err) {
+        console.error("Unexpected error fetching orders:", err);
         toast({
           title: "Error",
-          description: "Failed to load orders from database",
-          variant: "destructive"
+          description: "Something went wrong while loading orders",
+          variant: "destructive",
         });
+        setShopFloorOrders([]);
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     fetchOrders();
   }, [toast]);
+  
 
   // Filter orders based on search term and status filter
   useEffect(() => {
@@ -177,10 +96,10 @@ const ShopFloorTab = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(order =>
-        order.genericName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.brandName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.batchNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+        order.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.batch_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -234,14 +153,15 @@ const ShopFloorTab = () => {
       const order = shopFloorOrders.find((o) => o.order_id === orderId);
       if (!order) return;
 
-      // Insert new note into notes table
-      const { error: insertError } = await supabase
+      // Insert new note into notes table and return it
+      const { data:insertedNote, error: insertError } = await supabase
         .from("notes")
         .insert({
           manufacturing_order_id: orderId,
-          note_text: newNote,
-          created_at: new Date().toISOString()
-        });
+          content: newNote,
+        })
+        .select("note_id, content")
+        .single();
 
       if (insertError) {
         console.error("Error adding note:", insertError);
@@ -253,11 +173,12 @@ const ShopFloorTab = () => {
         return;
       }
 
-      // Update local state
-      const updatedNotes = [...order.notes, `${new Date().toLocaleString()}: ${newNote}`];
+      // Update local state with structured note object
       setShopFloorOrders((orders) =>
         orders.map((o) =>
-          o.order_id === orderId ? { ...o, notes: updatedNotes } : o
+          o.order_id === orderId
+            ? { ...o, notes: [...(o.notes || []), insertedNote] }
+            : o
         )
       );
 
@@ -328,6 +249,29 @@ const ShopFloorTab = () => {
     );
   }
 
+  const handleDeleteNote = async (noteId: string, orderId: string) => {
+    try {
+      // delete from Supabase (or API)
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .eq("note_id", noteId);
+  
+      if (error) throw error;
+  
+      // update UI state (remove note from local order object)
+      setShopFloorOrders((prev) =>
+        prev.map((o) =>
+          o.order_id === orderId
+            ? { ...o, notes: o.notes.filter((n) => n.note_id !== noteId) }
+            : o
+        )
+      );
+    } catch (err) {
+      console.error("Error deleting note:", err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -349,13 +293,13 @@ const ShopFloorTab = () => {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
+          <Filter className="w-5 h-6 text-gray-500" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All">All Statuses ({totalOrders})</SelectItem>
+              <SelectItem value="All">All Status ({totalOrders})</SelectItem>
               <SelectItem value="Under Production">Under Production ({getStatusCount("Under Production")})</SelectItem>
               <SelectItem value="Filling">Filling ({getStatusCount("Filling")})</SelectItem>
               <SelectItem value="Labelling">Labelling ({getStatusCount("Labelling")})</SelectItem>
@@ -406,7 +350,7 @@ const ShopFloorTab = () => {
         ) : (
           filteredOrders.map((order) => (
             <Card 
-              key={order.id} 
+              key={order.order_id} 
               className={`hover:shadow-lg transition-all duration-300 cursor-pointer border-2 ${getStatusBorderColor(order.status)} ${
                 selectedOrder === order.order_id ? "ring-2 ring-blue-200" : ""
               }`}
@@ -416,19 +360,19 @@ const ShopFloorTab = () => {
                   {/* Header with Product Info */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${order.category === "Human" ? "bg-blue-100" : "bg-green-100"}`}>
+                      <div className={`p-2 self-baseline rounded-lg ${order.category === "Human" ? "bg-blue-100" : "bg-green-100"}`}>
                         <Package2 className={`w-5 h-5 ${order.category === "Human" ? "text-blue-600" : "text-green-600"}`} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-sm leading-tight">{order.genericName}</h3>
-                        <p className="text-xs text-gray-600">{order.brandName}</p>
+                        <h3 className="font-semibold text-gray-900 text-xs pr-2 leading-tight">{order.product_name}</h3>
+                        <p className="text-xs text-gray-600">{order.brand_name}</p>
                         <Badge variant="outline" className="text-xs mt-1">
                           {order.category}
                         </Badge>
                       </div>
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {order.batchNumber}
+                      {order.batch_number}
                     </Badge>
                   </div>
 
@@ -436,30 +380,56 @@ const ShopFloorTab = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs">
                       <User className="w-3 h-3 text-gray-500" />
-                      <span className="font-medium text-gray-700">{order.customerName}</span>
+                      <span className="font-medium text-gray-700">{order.customer_name}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="bg-gray-50 p-2 rounded">
-                        <p className="font-medium text-gray-700">Quantity</p>
-                        <p className="text-gray-600">{order.qtyLiters}L ({order.primaryUnits} units)</p>
-                      </div>
-                      <div className="bg-gray-50 p-2 rounded">
-                        <p className="font-medium text-gray-700">Packing</p>
-                        <p className="text-gray-600">{order.qtyPackingSize}</p>
-                      </div>
+                    <div className="bg-gray-50 p-2 rounded">
+                      <p className="text-gray-600"><span className="font-medium text-gray-700">Order Quantity : </span> {order.order_quantity}L </p>
                     </div>
-                  </div>
+                    {/*Packing group detials*/}
+                    <p>Packing Details:</p>
+                    {order.packing_groups.length > 0 ? (
+                      <div className="border-2 p-0.5">
+                        {order.packing_groups.length > 0 && (
+                          <div className="max-h-25  overflow-y-auto space-y-1">
+                            {order.packing_groups.map((packing_group) => (
+                              <div className="grid grid-cols-2 gap-3 text-xs p-1">
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <p className="text-gray-500"><span className="font-medium text-gray-700">Packing : </span>{packing_group.packing_size}</p>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <p className="text-gray-500"><span className="font-medium text-gray-700"> No. of Bottles : </span>{packing_group.no_of_bottles}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ):(
+                      <div className="border-2 p-2">
+                        <p className="text-xs">No Packing Groups for this order</p>
+                      </div>
+                    )}
+                    
+                  </div> 
 
                   {/* Dates */}
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className="text-gray-600">Expected: {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</span>
+                      <span className="text-gray-600 text-xs"> <span className="text-xs font-semibold text-black">Expected Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Calendar className="w-3 h-3 text-gray-500" />
+                      <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Manufactured Date :</span> {order.manufacturing_date ? new Date(order.manufacturing_date).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3 h-3 text-gray-500" />
+                      <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Expiry Date :</span> {order.expiry_date ? new Date(order.expiry_date).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                    {/* <div className="flex items-center gap-2">
                       <Hash className="w-3 h-3 text-gray-500" />
                       <span className="text-gray-600">Order: {order.order_id}</span>
-                    </div>
+                    </div> */}
                   </div>
 
                   {/* Progress Bar */}
@@ -512,10 +482,19 @@ const ShopFloorTab = () => {
                     
                     {order.notes.length > 0 && (
                       <div className="max-h-20 overflow-y-auto space-y-1">
-                        {order.notes.map((note, index) => (
-                          <p key={index} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                            {note}
-                          </p>
+                        {order.notes.map((note) => (
+                          <div
+                            key={note.note_id}
+                            className="flex items-start justify-between bg-gray-50 p-2 rounded text-xs"
+                          >
+                            <p className="text-gray-600">{note.content}</p>
+                            <button
+                              onClick={() => handleDeleteNote(note.note_id, order.order_id)}
+                              className="ml-2 text-red-500 hover:text-red-700 text-[10px] font-medium"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -528,7 +507,7 @@ const ShopFloorTab = () => {
                           setSelectedOrder(order.order_id);
                           setNewNote(e.target.value);
                         }}
-                        className="text-xs min-h-[60px]"
+                        className="text-s min-h-[60px]"
                       />
                     </div>
                     
@@ -536,7 +515,7 @@ const ShopFloorTab = () => {
                       <Button
                         size="sm"
                         onClick={() => addNote(order.order_id)}
-                        className="w-full h-8 text-xs bg-blue-500 hover:bg-blue-600"
+                        className="w-full h-8 text-s bg-gray-200 text-black hover:bg-gray-400"
                       >
                         Add Note
                       </Button>

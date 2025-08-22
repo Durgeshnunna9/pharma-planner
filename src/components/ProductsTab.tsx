@@ -392,7 +392,7 @@ const ProductsTab = () => {
           placeholder="Search products by name or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
+          className="pl-8"
         />
       </div>
 

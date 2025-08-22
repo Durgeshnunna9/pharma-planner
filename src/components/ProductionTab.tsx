@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Boxes, Package, Pill, Plus } from "lucide-react";
+import { Boxes, Package, Pill, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../supabaseClient";
 
@@ -171,7 +171,7 @@ const ProductionTab = () => {
 
   // Handle new manufacturingOrder submission - with Supabase insert
   const handleAddManufacturingOrder = async () => {
-    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.customer_name || !newManufacturingOrder.packing_groups || newManufacturingOrder.customer_name || newManufacturingOrder.order_quantity) {
+    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.customer_name || !newManufacturingOrder.packing_groups || !newManufacturingOrder.order_quantity) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -182,7 +182,7 @@ const ProductionTab = () => {
 
     // Validate packing groups
     for (const group of newManufacturingOrder.packing_groups) {
-      if (!group.packing_size || group.no_of_bottles <= 0) {
+      if (!group.packing_size || Number(group.no_of_bottles) <= 0) {
         toast({
           title: "Error",
           description: "Please fill all packing size and bottles fields correctly.",
@@ -301,6 +301,7 @@ const ProductionTab = () => {
   //     alert('Error creating manufacturingOrder.');
   //   }
   // };
+  
   // Filtering orders by category and search term
   const filteredManufacturingOrder = manufacturingOrders.filter(manufacturingOrder => {
     const search = manufacturingOrderSearch.toLowerCase();
@@ -363,6 +364,7 @@ const ProductionTab = () => {
               <div>
                 <Label htmlFor="product_name">Product Generic Name *</Label>
                 <div className="relative">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
                     value={productSearch}
                     onChange={(e) => {
@@ -371,7 +373,8 @@ const ProductionTab = () => {
                     }}
                     onFocus={() => { if (productSearch.length > 0) setShowProductDropdown(true); }}
                     autoComplete="off"
-                    placeholder="Enter your product details"
+                    placeholder="Enter your Product Details"
+                    className="pl-8 "
                   />
                   {showProductDropdown && productSearch && (
                     <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-40 overflow-y-auto">
@@ -397,14 +400,17 @@ const ProductionTab = () => {
               <div>
                 <Label htmlFor="customer_name">Customer Name *</Label>
                 <div className="relative">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
                     value={customerSearch}
                     onChange={(e) => {
                       setCustomerSearch(e.target.value);
                       setShowCustomerDropdown(true);
                     }}
+                    placeholder="Enter your Customer Details"
                     onFocus={() => { if (customerSearch.length > 0) setShowCustomerDropdown(true); }}
                     autoComplete="off"
+                    className="pl-8"
                   />
                   {showCustomerDropdown && customerSearch && (
                     <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-40 overflow-y-auto">
@@ -558,12 +564,15 @@ const ProductionTab = () => {
       </div>
 
       {/* Search input */}
-      <Input
-        placeholder="Search by product, brand, customer "
-        value={manufacturingOrderSearch}
-        onChange={e => setManufacturingOrderSearch(e.target.value)}
-        className="mb-4"
-      />
+      <div className="relative">
+        <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+        <Input
+          placeholder="Search by product, brand, customer "
+          value={manufacturingOrderSearch}
+          onChange={e => setManufacturingOrderSearch(e.target.value)}
+          className="mb-4 pl-8"
+        />
+      </div>
 
       {/* Orders List */}
       <div className="grid gap-4">
@@ -902,68 +911,74 @@ const ProductionTab = () => {
               </div>
 
               {/* Packing Groups */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Packing Groups</h3>
-                {isEditing ? (
-                  <div className="flex flex-col gap-2">
-                    {editForm.packing_groups.map((group, idx) => (
-                      <div key={idx} className="grid grid-cols-3 gap-3 items-center">
-                        <select
-                          className="border rounded px-2 py-1"
-                          value={group.packing_size}
-                          onChange={e => {
-                            const updated = [...editForm.packing_groups];
-                            updated[idx] = { ...updated[idx], packing_size: e.target.value };
-                            setEditForm({ ...editForm, packing_groups: updated });
-                          }}
-                        >
-                          <option value="">Select packing size</option>
-                          {(products.find(p => p.external_id === selectedManufacturingOrder.product_id)?.packing_sizes || []).map((size: string) => (
-                            <option key={size} value={size}>{size}</option>
-                          ))}
-                        </select>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={group.no_of_bottles}
-                          onChange={e => {
-                            const updated = [...editForm.packing_groups];
-                            updated[idx] = { ...updated[idx], no_of_bottles: e.target.value === "" ? 0 : Number(e.target.value)};
-                            setEditForm({ ...editForm, packing_groups: updated });
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            if (editForm.packing_groups.length <= 1) return;
-                            const updated = editForm.packing_groups.filter((_, i) => i !== idx);
-                            setEditForm({ ...editForm, packing_groups: updated.length ? updated : [{ packing_size: '', no_of_bottles: 0 }] });
-                          }}
-                          disabled={editForm.packing_groups.length === 1}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setEditForm({ ...editForm, packing_groups: [...editForm.packing_groups, { packing_size: '', no_of_bottles: 0 }] })}
-                    >
-                      + Add Packing Group
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedManufacturingOrder.packing_groups?.map((group, index) => (
-                      <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-                        {group.packing_size} : {group.no_of_bottles}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {editForm.packing_groups.length > 1 ? (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Packing Groups : </h3>
+                  {isEditing ? (
+                    <div className="flex flex-col gap-2">
+                      {editForm.packing_groups.map((group, idx) => (
+                        <div key={idx} className="grid grid-cols-3 gap-3 items-center">
+                          <select
+                            className="border rounded px-2 py-1"
+                            value={group.packing_size}
+                            onChange={e => {
+                              const updated = [...editForm.packing_groups];
+                              updated[idx] = { ...updated[idx], packing_size: e.target.value };
+                              setEditForm({ ...editForm, packing_groups: updated });
+                            }}
+                          >
+                            <option value="">Select packing size</option>
+                            {(products.find(p => p.external_id === selectedManufacturingOrder.product_id)?.packing_sizes || []).map((size: string) => (
+                              <option key={size} value={size}>{size}</option>
+                            ))}
+                          </select>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={group.no_of_bottles}
+                            onChange={e => {
+                              const updated = [...editForm.packing_groups];
+                              updated[idx] = { ...updated[idx], no_of_bottles: e.target.value === "" ? 0 : Number(e.target.value)};
+                              setEditForm({ ...editForm, packing_groups: updated });
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              if (editForm.packing_groups.length <= 1) return;
+                              const updated = editForm.packing_groups.filter((_, i) => i !== idx);
+                              setEditForm({ ...editForm, packing_groups: updated.length ? updated : [{ packing_size: '', no_of_bottles: 0 }] });
+                            }}
+                            disabled={editForm.packing_groups.length === 1}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setEditForm({ ...editForm, packing_groups: [...editForm.packing_groups, { packing_size: '', no_of_bottles: 0 }] })}
+                      >
+                        + Add Packing Group
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedManufacturingOrder.packing_groups?.map((group, index) => (
+                        <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                          {group.packing_size} : {group.no_of_bottles}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ):(
+                <div>
+                  <p className="text-sm"><span className="text-lg font-semibold text-gray-900">Packing Group :</span> No Packing groups have been chosen</p>
+                </div>
+              )}
 
               {/* Manufacturing Order Brand Name */}
               <div>
