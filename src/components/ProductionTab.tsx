@@ -24,7 +24,7 @@ interface ManufacturingOrder {
   order_quantity: number;
   category: "Human" | "Veterinary";
   brand_name: string;
-  company_name: string;
+  company_name?: string | null;
   batch_number: string | null; // null if unassigned
   expected_delivery_date: string;
   manufacturing_date: string;
@@ -61,6 +61,10 @@ const ProductionTab = () => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [assignmentFilter, setAssignmentFilter] = useState("all"); // values: "all", "assigned", "unassigned"
+
+  
+
 
   // Fetch products and customers
   const [products, setProducts] = useState([]);
@@ -138,10 +142,15 @@ const ProductionTab = () => {
     p.sales_description.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  const filteredCustomers = customers.filter(c =>
-    c.company_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.customer_code.toString().includes(customerSearch.toLowerCase())
-  );
+  const filteredCustomers = customers.filter((c) => {
+    const companyName = (c.company_name ?? "").toLowerCase();
+    const customerId = c.customer_id ? c.customer_id.toString().toLowerCase() : "";
+  
+    return (
+      companyName.includes(customerSearch.toLowerCase()) ||
+      customerId.includes(customerSearch.toLowerCase())
+    );
+  });
 
   // Get color based on status
   const getStatusColor = (status: ManufacturingOrder["status"]) => {
@@ -338,9 +347,6 @@ const ProductionTab = () => {
       setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: batch });
     }
   };
-  const assignedOrders = manufacturingOrders.filter(manufacturingOrders => manufacturingOrders.status !== "Unassigned");
-  const unassignedOrders = manufacturingOrders.filter(manufacturingOrders => manufacturingOrders.status === "Unassigned");
-
   // Save edits from modal (including batch_number, packing_groups etc)
   // const saveOrderEdits = () => {
   //   if (!selectedManufacturingOrder) return;
@@ -350,6 +356,23 @@ const ProductionTab = () => {
   //   setSelectedManufacturingOrder(null);
   //   toast({ title: "Success", description: "Order updated successfully." });
   // };
+  
+  const sortedOrders = [...filteredManufacturingOrder].sort(
+    (a, b) => Number(b.order_id) - Number(a.order_id)
+  );
+
+  const assignedOrders = sortedOrders.filter(order => order.batch_number !== null && order.status !== "Unassigned");
+  const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
+
+  const filteredOrdersByAssignment = sortedOrders.filter(order => {
+    if (assignmentFilter === "assigned") {
+      return order.batch_number && order.batch_number !== "Unassigned";
+    }
+    if (assignmentFilter === "unassigned") {
+      return !order.batch_number || order.batch_number === "Unassigned";
+    }
+    return true; // "all"
+  });
 
   return (
     <div className="space-y-6">
@@ -411,7 +434,7 @@ const ProductionTab = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="company_name">Customer Name *</Label>
+                <Label htmlFor="company_name">Company Name *</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
@@ -420,7 +443,7 @@ const ProductionTab = () => {
                       setCustomerSearch(e.target.value);
                       setShowCustomerDropdown(true);
                     }}
-                    placeholder="Enter your Customer Details"
+                    placeholder="Enter your Company Details"
                     onFocus={() => { if (customerSearch.length > 0) setShowCustomerDropdown(true); }}
                     autoComplete="off"
                     className="pl-8"
@@ -430,7 +453,7 @@ const ProductionTab = () => {
                       {filteredCustomers.map((c) => (
                         <li
                           className="p-2 hover:bg-gray-100 cursor-pointer"
-                          key={c.customer_code}
+                          key={c.customer_id}
                           onClick={() => {
                             setNewManufacturingOrder({ ...newManufacturingOrder, customer_id: c.customer_code, company_name: c.company_name });
                             setCustomerSearch(c.company_name);
@@ -438,7 +461,7 @@ const ProductionTab = () => {
                           }}
                         >
                           <span className="text-m text-black-500 mr-2">[{c.customer_code}]</span>
-                          <span className="text-sm">{c.company_name}</span>
+                          <span className="text-sm">{c.company_name && c.company_name.trim() !== "" ? c.company_name : "Nil"}</span>
                         </li>
                       ))}
                     </ul>
@@ -580,26 +603,48 @@ const ProductionTab = () => {
       <div className="relative">
         <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
         <Input
-          placeholder="Search by product, brand, customer "
+          placeholder="Search by product, brand, company "
           value={manufacturingOrderSearch}
           onChange={e => setManufacturingOrderSearch(e.target.value)}
           className="mb-4 pl-8"
         />
       </div>
 
+      {/* Filter of assignment */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setAssignmentFilter("all")}
+          className={`px-4 py-2 rounded ${assignmentFilter === "all" ? "bg-green-600 text-white" : "bg-gray-200"}`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setAssignmentFilter("assigned")}
+          className={`px-4 py-2 rounded ${assignmentFilter === "assigned" ? "bg-green-600 text-white" : "bg-gray-200"}`}
+        >
+          Assigned
+        </button>
+        <button
+          onClick={() => setAssignmentFilter("unassigned")}
+          className={`px-4 py-2 rounded ${assignmentFilter === "unassigned" ? "bg-green-600 text-white" : "bg-gray-200"}`}
+        >
+          Unassigned
+        </button>
+      </div>
+
+
       {/* Orders List */}
       <div className="grid gap-4">
-        {filteredManufacturingOrder.length === 0 ? (
+        {filteredOrdersByAssignment.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-gray-500">No manufacturing orders found.</p>
           </Card>
         ) : (
-          filteredManufacturingOrder.map((manufacturingOrder) => (
+          filteredOrdersByAssignment.map((manufacturingOrder) => (
             <Card 
               key={manufacturingOrder.order_id} 
               className="hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => handleManufacturingOrderClick(manufacturingOrder)}
-              
             >
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
@@ -608,18 +653,23 @@ const ProductionTab = () => {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
-                    <p className="text-gray-600 mt-1">Brand: {manufacturingOrder.brand_name} | Company: {manufacturingOrder.company_name}</p>
+                    <p className="text-gray-600 mt-1">
+                      Brand: {manufacturingOrder.brand_name} | Company: {manufacturingOrder.company_name}
+                    </p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className="px-2 py-1 bg-violet-100 text-gray-700 rounded text-xs">
                         Batch: {manufacturingOrder.batch_number ?? "Unassigned"}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${manufacturingOrder.category === "Human" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        manufacturingOrder.category === "Human" 
+                          ? "bg-blue-100 text-blue-800" 
+                          : "bg-purple-100 text-purple-800"
+                      }`}>
                         {manufacturingOrder.category}
                       </span>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(manufacturingOrder.status)}`}>
                         {manufacturingOrder.status}
                       </span>
-                      
                     </div>
                   </div>
                   <div className="text-right text-sm text-gray-500 space-y-1">
@@ -634,6 +684,7 @@ const ProductionTab = () => {
           ))
         )}
       </div>
+
 
       {/* Order Details Modal */}
       {/* {selectedManufacturingOrder && (
@@ -819,13 +870,13 @@ const ProductionTab = () => {
                   </p>
                 </div>
 
-                {/*ManufacturingOrder Customer Name */}
+                {/*ManufacturingOrder Company Name */}
                 <div>
                   <p className="text-xl text-gray-900 mb-2">
                     {isEditing ? (
                       <div className="relative">
                         <div>
-                          <p className="text-base">Customer: </p>
+                          <p className="text-base">Company: </p>
                           <Input
                             value={editForm.company_name}
                             onChange={(e) => {
@@ -836,14 +887,14 @@ const ProductionTab = () => {
                               if (editForm.company_name.length > 0) setShowCustomerDropdown(true);
                             }}
                             autoComplete="off"
-                            placeholder="Enter your customer details"
+                            placeholder="Enter your company details"
                           />
                         </div>
                         {showCustomerDropdown && editForm.company_name && (
                           <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-40 overflow-y-auto">
                             {filteredCustomers.map((c) => (
                               <li
-                                key={c.customer_code}
+                                key={c.customer_id}
                                 className="p-2 hover:bg-gray-100 cursor-pointer"
                                 onClick={() => {
                                   setEditForm({
@@ -853,7 +904,7 @@ const ProductionTab = () => {
                                   setShowCustomerDropdown(false);
                                 }}
                               >
-                                <span className="text-sm text-black-500 mr-2">[{c.customer_code}]</span>
+                                <span className="text-sm text-black-500 mr-2">[{c.customer_id}]</span>
                                 <span className="text-sm">{c.company_name}</span>
                               </li>
                             ))}
@@ -862,7 +913,7 @@ const ProductionTab = () => {
                       </div>
                     ) : (
                       <div>
-                        <p className=" italic">Customer:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.company_name}</span> </p>
+                        <p className=" italic">Company:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.company_name}</span> </p>
                         
                       </div>
                     )}
