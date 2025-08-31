@@ -24,7 +24,7 @@ interface ManufacturingOrder {
   order_quantity: number;
   category: "Human" | "Veterinary";
   brand_name: string;
-  customer_name: string;
+  company_name: string;
   batch_number: string | null; // null if unassigned
   expected_delivery_date: string;
   manufacturing_date: string;
@@ -45,7 +45,7 @@ const ProductionTab = () => {
     customer_id: "",
     product_name: "",
     brand_name: "",
-    customer_name: "",
+    company_name: "",
     order_quantity: 0,
     packing_groups: [{ packing_size: "", no_of_bottles: 0 }], // start with one group
     expected_delivery_date: "",
@@ -72,7 +72,7 @@ const ProductionTab = () => {
     order_quantity: 0,
     category: 'Human' as 'Human' | 'Veterinary',
     brand_name: '',
-    customer_name: '',
+    company_name: '',
     packing_groups: [
       { packing_size: "", no_of_bottles: 0}
     ],
@@ -107,14 +107,24 @@ const ProductionTab = () => {
     fetchData();
   }, []);
 
+  let orderCounter = {
+    Human: 0,
+    Veterinary: 0
+  };
+
   // Generate batch number (only on assignment)
   const generateBatchNumber = (category: "Human" | "Veterinary") => {
+    // Choose prefix based on category
     const prefix = category === "Human" ? "SFH25" : "SFV25";
-    const date = new Date();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-    return `${prefix}${month}${day}${randomNum}`;
+    
+    // Increment counter for this category
+    orderCounter[category] += 1;
+  
+    // Format as 3-digit padded number (e.g., 001, 002, 003)
+    const suffix = String(orderCounter[category]).padStart(3, "0");
+  
+    // Combine prefix + suffix
+    return `${prefix}${suffix}`;
   };
 
   // Product selected for packing sizes
@@ -129,7 +139,7 @@ const ProductionTab = () => {
   );
 
   const filteredCustomers = customers.filter(c =>
-    c.customer_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.company_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
     c.customer_code.toString().includes(customerSearch.toLowerCase())
   );
 
@@ -171,7 +181,7 @@ const ProductionTab = () => {
 
   // Handle new manufacturingOrder submission - with Supabase insert
   const handleAddManufacturingOrder = async () => {
-    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.customer_name || !newManufacturingOrder.packing_groups || !newManufacturingOrder.order_quantity) {
+    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.company_name || !newManufacturingOrder.packing_groups || !newManufacturingOrder.order_quantity) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -202,7 +212,7 @@ const ProductionTab = () => {
         order_quantity: newManufacturingOrder.order_quantity,
         category: newManufacturingOrder.category,
         brand_name: newManufacturingOrder.brand_name,
-        customer_name: newManufacturingOrder.customer_name,
+        company_name: newManufacturingOrder.company_name,
         // optionally store other fields like dates or status
       }])
       .select();
@@ -246,7 +256,7 @@ const ProductionTab = () => {
       order_quantity: 0,
       category: "Human",
       brand_name: "",
-      customer_name: "",
+      company_name: "",
       packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
       expected_delivery_date: "",
       manufacturing_date: "",
@@ -259,6 +269,7 @@ const ProductionTab = () => {
       description: "Manufacturing Order created successfully",
     });
   };
+
   const handleManufacturingOrderClick = (manufacturingOrder: ManufacturingOrder) => {
     setSelectedManufacturingOrder(manufacturingOrder);
     setShowManufacturingOrderDetails(true);
@@ -275,7 +286,7 @@ const ProductionTab = () => {
   //         order_quantity: newManufacturingOrder.order_quantity,
   //         category: newManufacturingOrder.category,
   //         brand_name: newManufacturingOrder.brand_name,
-  //         customer_name: newManufacturingOrder.customer_name
+  //         company_name: newManufacturingOrder.company_name
   //       }])
   //       .select()
   //       .single();
@@ -308,7 +319,7 @@ const ProductionTab = () => {
   
     const matchesSearch =
       (manufacturingOrder.product_name ?? "").toLowerCase().includes(search) ||
-      (manufacturingOrder.customer_name ?? "").toLowerCase().includes(search) ||
+      (manufacturingOrder.company_name ?? "").toLowerCase().includes(search) ||
       (manufacturingOrder.brand_name ?? "").toLowerCase().includes(search);
   
     const matchesCategory =
@@ -327,16 +338,18 @@ const ProductionTab = () => {
       setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: batch });
     }
   };
+  const assignedOrders = manufacturingOrders.filter(manufacturingOrders => manufacturingOrders.status !== "Unassigned");
+  const unassignedOrders = manufacturingOrders.filter(manufacturingOrders => manufacturingOrders.status === "Unassigned");
 
   // Save edits from modal (including batch_number, packing_groups etc)
-  const saveOrderEdits = () => {
-    if (!selectedManufacturingOrder) return;
-    setManufacturingOrders(prev =>
-      prev.map(o => o.order_id === selectedManufacturingOrder.order_id ? selectedManufacturingOrder : o)
-    );
-    setSelectedManufacturingOrder(null);
-    toast({ title: "Success", description: "Order updated successfully." });
-  };
+  // const saveOrderEdits = () => {
+  //   if (!selectedManufacturingOrder) return;
+  //   setManufacturingOrders(prev =>
+  //     prev.map(o => o.order_id === selectedManufacturingOrder.order_id ? selectedManufacturingOrder : o)
+  //   );
+  //   setSelectedManufacturingOrder(null);
+  //   toast({ title: "Success", description: "Order updated successfully." });
+  // };
 
   return (
     <div className="space-y-6">
@@ -398,7 +411,7 @@ const ProductionTab = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="customer_name">Customer Name *</Label>
+                <Label htmlFor="company_name">Customer Name *</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
@@ -419,13 +432,13 @@ const ProductionTab = () => {
                           className="p-2 hover:bg-gray-100 cursor-pointer"
                           key={c.customer_code}
                           onClick={() => {
-                            setNewManufacturingOrder({ ...newManufacturingOrder, customer_id: c.customer_code, customer_name: c.customer_name });
-                            setCustomerSearch(c.customer_name);
+                            setNewManufacturingOrder({ ...newManufacturingOrder, customer_id: c.customer_code, company_name: c.company_name });
+                            setCustomerSearch(c.company_name);
                             setShowCustomerDropdown(false);
                           }}
                         >
                           <span className="text-m text-black-500 mr-2">[{c.customer_code}]</span>
-                          <span className="text-sm">{c.customer_name}</span>
+                          <span className="text-sm">{c.company_name}</span>
                         </li>
                       ))}
                     </ul>
@@ -595,7 +608,7 @@ const ProductionTab = () => {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
-                    <p className="text-gray-600 mt-1">Brand: {manufacturingOrder.brand_name} | Customer: {manufacturingOrder.customer_name}</p>
+                    <p className="text-gray-600 mt-1">Brand: {manufacturingOrder.brand_name} | Company: {manufacturingOrder.company_name}</p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className="px-2 py-1 bg-violet-100 text-gray-700 rounded text-xs">
                         Batch: {manufacturingOrder.batch_number ?? "Unassigned"}
@@ -636,7 +649,7 @@ const ProductionTab = () => {
             <h2 className="text-2xl font-bold mb-4">{selectedManufacturingOrder.product_name}</h2>
             <p><b>Category:</b> {selectedManufacturingOrder.category}</p>
             <p><b>Brand:</b> {selectedManufacturingOrder.brand_name}</p>
-            <p><b>Customer:</b> {selectedManufacturingOrder.customer_name}</p>
+            <p><b>Customer:</b> {selectedManufacturingOrder.company_name}</p>
 
             <div className="my-4">
               <Label>Batch/Badge Number</Label>
@@ -814,19 +827,19 @@ const ProductionTab = () => {
                         <div>
                           <p className="text-base">Customer: </p>
                           <Input
-                            value={editForm.customer_name}
+                            value={editForm.company_name}
                             onChange={(e) => {
-                              setEditForm({ ...editForm, customer_name: e.target.value });
+                              setEditForm({ ...editForm, company_name: e.target.value });
                               setShowCustomerDropdown(true);
                             }}
                             onFocus={() => {
-                              if (editForm.customer_name.length > 0) setShowCustomerDropdown(true);
+                              if (editForm.company_name.length > 0) setShowCustomerDropdown(true);
                             }}
                             autoComplete="off"
                             placeholder="Enter your customer details"
                           />
                         </div>
-                        {showCustomerDropdown && editForm.customer_name && (
+                        {showCustomerDropdown && editForm.company_name && (
                           <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-40 overflow-y-auto">
                             {filteredCustomers.map((c) => (
                               <li
@@ -835,13 +848,13 @@ const ProductionTab = () => {
                                 onClick={() => {
                                   setEditForm({
                                     ...editForm,
-                                    customer_name: c.customer_name,
+                                    company_name: c.company_name,
                                   });
                                   setShowCustomerDropdown(false);
                                 }}
                               >
                                 <span className="text-sm text-black-500 mr-2">[{c.customer_code}]</span>
-                                <span className="text-sm">{c.customer_name}</span>
+                                <span className="text-sm">{c.company_name}</span>
                               </li>
                             ))}
                           </ul>
@@ -849,7 +862,7 @@ const ProductionTab = () => {
                       </div>
                     ) : (
                       <div>
-                        <p className=" italic">Customer:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.customer_name}</span> </p>
+                        <p className=" italic">Customer:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.company_name}</span> </p>
                         
                       </div>
                     )}
@@ -1064,7 +1077,7 @@ const ProductionTab = () => {
                             category: editForm.category,
                             order_quantity: editForm.order_quantity,
                             brand_name: editForm.brand_name,
-                            customer_name: editForm.customer_name,
+                            company_name: editForm.company_name,
                             expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
                             manufacturing_date: selectedManufacturingOrder.manufacturing_date,
                             expiry_date: selectedManufacturingOrder.expiry_date,
@@ -1114,7 +1127,7 @@ const ProductionTab = () => {
                           category: editForm.category,
                           order_quantity: editForm.order_quantity,
                           brand_name: editForm.brand_name,
-                          customer_name: editForm.customer_name,
+                          company_name: editForm.company_name,
                           packing_groups: editForm.packing_groups,
                           expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
                           manufacturing_date: selectedManufacturingOrder.manufacturing_date,
@@ -1141,7 +1154,7 @@ const ProductionTab = () => {
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
                           brand_name:selectedManufacturingOrder.brand_name,
-                          customer_name: selectedManufacturingOrder.customer_name,
+                          company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...selectedManufacturingOrder.packing_groups],
                         });
                       }}
@@ -1160,7 +1173,7 @@ const ProductionTab = () => {
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
                           brand_name:selectedManufacturingOrder.brand_name,
-                          customer_name: selectedManufacturingOrder.customer_name,
+                          company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...(selectedManufacturingOrder.packing_groups || [])],
                         });
                         setIsEditing(true);

@@ -22,8 +22,8 @@ interface Customer {
   company_name: string;
   dl20b_number: string;
   dl21b_number: string;
-  billing_address: string;
-  shipping_address: string;
+  // billing_address: string;
+  // shipping_address: string;
 }
 
 const CustomersTab = () => {
@@ -43,8 +43,8 @@ const CustomersTab = () => {
     customer_name: "",
     dl20b_number: "",
     dl21b_number: "",
-    billing_address: "",
-    shipping_address: "",
+    // billing_address: "",
+    // shipping_address: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -54,8 +54,8 @@ const CustomersTab = () => {
     company_name: '',
     dl20b_number: '',
     dl21b_number: '',
-    billing_address: '',
-    shipping_address: '',
+    // billing_address: '',
+    // shipping_address: '',
   });
   useEffect(() => {
     const loadCustomers = async () => {
@@ -72,52 +72,52 @@ const CustomersTab = () => {
   
     loadCustomers();
   }, []);
-  const handleGstinLookup = async () => {
-    const gstin = newCustomer.gstin_number.trim();
-    if (!gstin) {
-      toast({
-        title: "Error",
-        description: "Please enter a GSTIN number first.",
-        variant: "destructive",
-      });
-      return;
-    }
+  // const handleGstinLookup = async () => {
+  //   const gstin = newCustomer.gstin_number.trim();
+  //   if (!gstin) {
+  //     toast({
+  //       title: "Error",
+  //       description: "Please enter a GSTIN number first.",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
   
-    try {
-      // Replace with your actual GST API endpoint and key
-      const response = await fetch(`https://your-gst-api.com/gstin/${gstin}`,//Enter your gst number here 
-        {
-        headers: {
-          "Authorization": "Bearer YOUR_API_KEY"
-        }
-      });
-      if (!response.ok) throw new Error("GSTIN not found or API error");
-      const data = await response.json();
+  //   try {
+  //     // Replace with your actual GST API endpoint and key
+  //     const response = await fetch(`https://your-gst-api.com/gstin/${gstin}`,//Enter your gst number here 
+  //       {
+  //       headers: {
+  //         "Authorization": "Bearer YOUR_API_KEY"
+  //       }
+  //     });
+  //     if (!response.ok) throw new Error("GSTIN not found or API error");
+  //     const data = await response.json();
   
-      // Example: adjust these fields based on your API's response structure
-      setNewCustomer({
-        ...newCustomer,
-        company_name: data.legalName || "",
-        customer_code: data.code || "",
-        dl20b_number: data.dl20b_number || "",
-        dl21b_number: data.dl21b_number || "",
-        billing_address: data.address || "",
-        shipping_address: data.address || "",
-        // Add more fields as needed. These will depend on what json data is been recieved from gst portal.
-      });
-      setGstLocked(true);
-      toast({
-        title: "GSTIN Data Fetched",
-        description: "Company details have been filled from GSTIN.",
-      });
-    } catch (error) {
-      toast({
-        title: "GSTIN Lookup Failed",
-        description: error.message || "Could not fetch GSTIN details.",
-        variant: "destructive",
-      });
-    }
-  };
+  //     // Example: adjust these fields based on your API's response structure
+  //     setNewCustomer({
+  //       ...newCustomer,
+  //       company_name: data.legalName || "",
+  //       customer_code: data.code || "",
+  //       dl20b_number: data.dl20b_number || "",
+  //       dl21b_number: data.dl21b_number || "",
+  //       billing_address: data.address || "",
+  //       shipping_address: data.address || "",
+  //       // Add more fields as needed. These will depend on what json data is been recieved from gst portal.
+  //     });
+  //     setGstLocked(true);
+  //     toast({
+  //       title: "GSTIN Data Fetched",
+  //       description: "Company details have been filled from GSTIN.",
+  //     });
+  //   } catch (error) {
+  //     toast({
+  //       title: "GSTIN Lookup Failed",
+  //       description: error.message || "Could not fetch GSTIN details.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   const handleAddCustomer = async () => {
     if (!newCustomer.company_name || !newCustomer.customer_code) {
@@ -128,20 +128,59 @@ const CustomersTab = () => {
       });
       return;
     }
-
-    const customer = {
-      id: Date.now().toString(),
-      customer_code: newCustomer.customer_code,
-      customer_name: newCustomer.customer_name,
-      gstin_number: newCustomer.gstin_number,
-      company_name: newCustomer.company_name,
-      dl20b_number: newCustomer.dl20b_number,
-      dl21b_number: newCustomer.dl21b_number,
-      billing_address: newCustomer.billing_address,
-      shipping_address: newCustomer.shipping_address,
-    };
-
-    setCustomers([...customers, customer]);
+  
+    // Step 1: Check for duplicate in Supabase
+    const { data: existingCustomer, error: searchError } = await supabase
+      .from("customer")
+      .select("customer_code")
+      .ilike("company_name", `%${newCustomer.company_name.trim()}%`); // case-insensitive search
+  
+    if (searchError) {
+      console.error("Search failed", searchError);
+      toast({
+        title: "Error",
+        description: "Could not check existing customers",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    if (existingCustomer && existingCustomer.length > 0) {
+      toast({
+        title: "Duplicate",
+        description: "Customer already exists in the database",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    // Step 2: Insert new customer
+    const { data, error } = await supabase
+      .from("customer")
+      .insert([newCustomer])
+      .select();
+  
+    if (error) {
+      // Handle unique constraint violation just in case
+      if (error.code === "23505") {
+        toast({
+          title: "Duplicate",
+          description: "Customer already exists",
+          variant: "destructive",
+        });
+      } else {
+        console.error("Failed to add customer", error);
+        toast({
+          title: "Error",
+          description: "Something went wrong while adding customer",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+  
+    // Step 3: Update local state
+    setCustomers([...customers, data[0]]);
     setNewCustomer({
       customer_code: "",
       customer_name: "",
@@ -149,24 +188,18 @@ const CustomersTab = () => {
       gstin_number: "",
       dl20b_number: "",
       dl21b_number: "",
-      billing_address: "",
-      shipping_address: "",
+      // billing_address: "",
+      // shipping_address: "",
     });
     setShowAddForm(false);
-    // const { data, error } = await supabase
-    // .from("customer")
-    // .insert(customer);
-
-    // if (error) {
-    //   console.error("Failed to add customer", error);
-    // } else {
-    //   setCustomers([...customers, data]);
-    // }
-    // toast({
-    //   title: "Success",
-    //   description: "Customer added successfully",
-    // });
+  
+    // Step 4: Show success
+    toast({
+      title: "Success",
+      description: "Customer added successfully",
+    });
   };
+  
 
   const handleCustomerClick = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -300,20 +333,16 @@ const CustomersTab = () => {
             <CardTitle className="text-green-700">Add New Customer</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Label htmlFor="gstinNumber">GSTIN Number</Label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="gstinNumber">GSTIN Number</Label>
                 <Input
                   id="gstinNumber"
                   value={newCustomer.gstin_number}
                   onChange={(e) => setNewCustomer({...newCustomer, gstin_number: e.target.value})}
                   placeholder="Enter GSTIN"
                 />
-                <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md w-12 h-10" type="button" onClick={handleGstinLookup}>
-                  <Search className="w-4 h-4" />
-                </button>
-                
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+              </div>
               <div>
                 <Label htmlFor="companyName">Company Name *</Label>
                 <Input
@@ -321,6 +350,19 @@ const CustomersTab = () => {
                   value={newCustomer.company_name}
                   onChange={(e) => setNewCustomer({...newCustomer, company_name: e.target.value})}
                   placeholder="Enter company name"
+                  readOnly={gstLocked}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="customerName">Customer Name *</Label>
+                <Input
+                  id="customerName"
+                  value={newCustomer.customer_name}
+                  onChange={(e) => setNewCustomer({...newCustomer, customer_name: e.target.value})}
+                  placeholder="Enter customer name"
                   readOnly={gstLocked}
                 />
               </div>
@@ -363,11 +405,11 @@ const CustomersTab = () => {
               <Label htmlFor="billingAddress">Billing Address</Label>
               <Textarea
                 id="billingAddress"
-                value={newCustomer.billingAddress}
-                onChange={(e) => setNewCustomer({...newCustomer, billingAddress: e.target.value})}
+                value={newCustomer.billing_address}
+                onChange={(e) => setNewCustomer({...newCustomer, billing_address: e.target.value})}
                 placeholder="Enter billing address"
               />
-            </div> */}
+            </div>
 
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -388,7 +430,7 @@ const CustomersTab = () => {
                   placeholder="Enter shipping address"
                 />
               </div>
-            )}
+            )} */}
 
             <div className="flex gap-3">
               <Button onClick={handleAddCustomer} className="bg-green-500 hover:bg-green-600">
@@ -421,14 +463,21 @@ const CustomersTab = () => {
                     <Building2 className="w-6 h-9"/>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{customer.company_name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">Code: {customer.customer_code}</p>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div style={{marginTop:10}}>
-                        <p className="font-medium text-gray-700">GSTIN: {customer.gstin_number}</p>
-                        
+                    <div className="grid grid-cols-2">
+                      <p>Customer Name: <span className="text-lg font-semibold text-gray-900">{customer.customer_name ?.trim() || "NaN" }</span></p>
+                      <p>Company Name: <span className="text-lg font-semibold text-gray-900">{customer.company_name?.trim() || "NaN" }</span></p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm pt-2">
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1"><span className="text-base font-bold">Code: </span> {customer.customer_code}</p>
+                        <p className="font-medium text-gray-700"> <span className="text-base font-bold">GSTIN:</span> {customer.gstin_number}</p>
                       </div>
-                      {/* <div>
+                      <div>
+                        <p className="text-gray-600 mb-1"> <span className="text-base font-bold">20B DL:</span> {customer.dl20b_number?.trim() || "NaN"}</p>
+                        <p className="text-gray-600"><span className="text-base font-bold">21B DL:</span> {customer.dl21b_number?.trim() || "NaN"}</p>
+                      </div>
+                       {/* <div>
                         <p className="font-medium text-gray-700">Billing Address:</p>
                         <p className="text-gray-600 text-xs">{customer.billingAddress}</p>
                         {customer.shippingAddress !== customer.billingAddress && (
@@ -438,10 +487,6 @@ const CustomersTab = () => {
                           </>
                         )}
                       </div> */}
-                      <div>
-                      <p className="text-gray-600">20B DL: {customer.dl20b_number}</p>
-                      <p className="text-gray-600">21B DL: {customer.dl21b_number}</p>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -456,117 +501,139 @@ const CustomersTab = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>Customer Details</span>
-              {/* <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCustomerDetails(false)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="w-4 h-4" />
-              </Button> */}
+              <h3 className="text-lg font-bold">CUSTOMER DETAILS</h3>
             </DialogTitle>
           </DialogHeader>
           {selectedCustomer && (
             <div className="space-y-6">
-              {/* Customer Header */}
-              <div className="border-b pb-4">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Customer Header */}
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
                   {isEditing ? (
-                    <Input
-                      value={editForm.company_name}
-                      onChange={e => setEditForm({ ...editForm, company_name: e.target.value })}
-                    />
+                    <div>
+                      <p className="text-sm pb-1">Company Name:</p>
+                      <Input
+                        value={editForm.company_name}
+                        className="font-normal"
+                        onChange={e => setEditForm({ ...editForm, company_name: e.target.value })}
+                      />
+                    </div>
                   ) : (
-                    selectedCustomer.company_name
+                    <p className="font-normal text-sm"><span className="text-base font-bold">Company Name:</span> {selectedCustomer.company_name}</p>
+                  )}
+               </h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {isEditing ? (
+                    <div >
+                      <p className="text-sm pb-1">Customer Name:</p>
+                      <Input
+                        value={editForm.customer_name}
+                        className="font-normal"
+                        onChange={e => setEditForm({ ...editForm, customer_name: e.target.value })}
+                      />
+                    </div>
+                    
+                  ) : (
+                    <p className="font-normal text-sm"><span className="text-base font-bold">Customer Name:</span> {selectedCustomer.customer_name}</p>
                   )}
                 </h2>
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Code: {isEditing ? (
-                      <Input
-                        value={editForm.customer_code}
-                        onChange={e => setEditForm({ ...editForm, customer_code: e.target.value })}
-                        className="w-32 inline-block"
-                      />
-                    ) : (
-                      selectedCustomer.customer_code
-                    )}
-                  </span>
-                  {(isEditing ? editForm.gstin_number : selectedCustomer.gstin_number) && (
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      GSTIN: {isEditing ? (
-                        <Input
-                          value={editForm.gstin_number}
-                          onChange={e => setEditForm({ ...editForm, gstin_number: e.target.value })}
-                          className="w-40 inline-block"
-                        />
-                      ) : (
-                        selectedCustomer.gstin_number
-                      )}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* License Numbers & Addresses */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">License Information</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">20B DL No:</span>
-                      {isEditing ? (
-                        <Input
-                          value={editForm.dl20b_number}
-                          onChange={e => setEditForm({ ...editForm, dl20b_number: e.target.value })}
-                          className="w-32 inline-block"
-                        />
-                      ) : (
-                        <span className="font-medium">{selectedCustomer.dl20b_number || "N/A"}</span>
-                      )}
+                <div className="mt-3">
+                  <div className="flex flex-col gap-3">
+                    {/* Code Badge */}
+                    <div className="p-2">
+                      <span className="px-3 py-1 rounded-full  pt-3 pb-3 mt-2 text-xs font-medium bg-green-100 text-green-800">
+                        Code:{" "}
+                        {isEditing ? (
+                          <Input
+                            value={editForm.customer_code}
+                            onChange={e => setEditForm({ ...editForm, customer_code: e.target.value })}
+                            className="w-32 h-auto inline-block p-1"
+                          />
+                        ) : (
+                          selectedCustomer.customer_code
+                        )}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">201B DL No:</span>
-                      {isEditing ? (
-                        <Input
-                          value={editForm.dl21b_number}
-                          onChange={e => setEditForm({ ...editForm, dl21b_number: e.target.value })}
-                          className="w-32 inline-block"
-                        />
-                      ) : (
-                        <span className="font-medium">{selectedCustomer.dl21b_number || "N/A"}</span>
-                      )}
+
+                    {/* GSTIN Badge */}
+                    <div>
+                      <span className="px-3 py-1 p-2 rounded-full pt-3 pb-3 text-xs font-medium bg-blue-100 text-blue-800">
+                        GSTIN:{" "}
+                        {isEditing ? (
+                          <Input
+                            value={editForm.gstin_number || ""}
+                            onChange={e => setEditForm({ ...editForm, gstin_number: e.target.value })}
+                            className="w-40 inline-block h-auto p-1"
+                            placeholder="Enter GSTIN"
+                          />
+                        ) : (
+                          selectedCustomer.gstin_number || "Not Provided"
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Addresses</h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600 font-medium">Billing Address:</span>
-                      {isEditing ? (
-                        <Textarea
-                          value={editForm.billing_address}
-                          onChange={e => setEditForm({ ...editForm, billing_address: e.target.value })}
-                          className="w-full"
-                        />
-                      ) : (
-                        <div className="text-gray-700">{selectedCustomer.billing_address || "N/A"}</div>
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-gray-600 font-medium">Shipping Address:</span>
-                      {isEditing ? (
-                        <Textarea
-                          value={editForm.shipping_address}
-                          onChange={e => setEditForm({ ...editForm, shipping_address: e.target.value })}
-                          className="w-full"
-                        />
-                      ) : (
-                        <div className="text-gray-700">{selectedCustomer.shipping_address || "N/A"}</div>
-                      )}
+
+                {/* License Numbers & Addresses */}
+                <div className="gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">License Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 ">20B DL No:</span>
+                        {isEditing ? (
+                          <Input
+                            value={editForm.dl20b_number}
+                            onChange={e => setEditForm({ ...editForm, dl20b_number: e.target.value })}
+                            className="w-32 inline-block h-auto"
+                          />
+                        ) : (
+                          <span className="font-medium">{selectedCustomer.dl20b_number || "N/A"}</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">201B DL No:</span>
+                        {isEditing ? (
+                          <Input
+                            value={editForm.dl21b_number}
+                            onChange={e => setEditForm({ ...editForm, dl21b_number: e.target.value })}
+                            className="w-32 inline-block h-auto"
+                          />
+                        ) : (
+                          <span className="font-medium">{selectedCustomer.dl21b_number || "N/A"}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {/* <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Addresses</h3>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-gray-600 font-medium">Billing Address:</span>
+                        {isEditing ? (
+                          <Textarea
+                            value={editForm.billing_address}
+                            onChange={e => setEditForm({ ...editForm, billing_address: e.target.value })}
+                            className="w-full"
+                          />
+                        ) : (
+                          <div className="text-gray-700">{selectedCustomer.billing_address || "N/A"}</div>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-gray-600 font-medium">Shipping Address:</span>
+                        {isEditing ? (
+                          <Textarea
+                            value={editForm.shipping_address}
+                            onChange={e => setEditForm({ ...editForm, shipping_address: e.target.value })}
+                            className="w-full"
+                          />
+                        ) : (
+                          <div className="text-gray-700">{selectedCustomer.shipping_address || "N/A"}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div> */}
                 </div>
               </div>
               {/* Action Buttons */}
@@ -574,7 +641,7 @@ const CustomersTab = () => {
                 {isEditing ? (
                   <div>
                     <Button
-                      className="bg-green-500 hover:bg-green-600"
+                      className="bg-green-500 hover:bg-green-600 mr-2"
                       onClick= {async () => {
                         const { error: customerError } = await supabase
                           .from("customer")
@@ -584,10 +651,10 @@ const CustomersTab = () => {
                             gstin_number: editForm.gstin_number,
                             dl20b_number: editForm.dl20b_number,
                             dl21b_number: editForm.dl21b_number,
-                            billing_address: editForm.billing_address,
-                            shipping_address: editForm.shipping_address,
+                            // billing_address: editForm.billing_address,
+                            // shipping_address: editForm.shipping_address,
                           })
-                          .eq("id", selectedCustomer.id)
+                          .eq("customer_code", selectedCustomer.customer_code)
                         if(customerError){
                           console.error(customerError);
                           toast({ title: "Error", description: "Failed to update customer.", variant: "destructive" });
@@ -615,7 +682,7 @@ const CustomersTab = () => {
                     >
                       Save
                     </Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                    <Button variant="outline" className="ml-2" onClick={() => setIsEditing(false)}>
                       Cancel
                     </Button>
                   </div>
@@ -631,8 +698,8 @@ const CustomersTab = () => {
                           company_name: selectedCustomer.company_name,
                           dl20b_number: selectedCustomer.dl20b_number,
                           dl21b_number: selectedCustomer.dl21b_number,
-                          billing_address: selectedCustomer.billing_address,
-                          shipping_address: selectedCustomer.shipping_address,
+                          // billing_address: selectedCustomer.billing_address,
+                          // shipping_address: selectedCustomer.shipping_address,
                         });
                         setIsEditing(true);
                       }}
