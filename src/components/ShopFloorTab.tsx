@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, MessageSquare, Package2, Filter, Calendar, User, Hash } from "lucide-react";
+import { Search, MessageSquare, Package2, Filter, Calendar, User, Hash, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../supabaseClient";
 
@@ -22,9 +22,9 @@ interface ShopFloorOrder {
   order_id: string;
   product_name: string;
   brand_name: string;
-  customer_name: string;
+  company_name: string;
   batch_number: string;
-  status: "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch";
+  status: "All" |"Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
   expected_delivery_date: string;
   manufacturing_date: string;
   expiry_date: string;
@@ -40,7 +40,8 @@ const ShopFloorTab = () => {
   const [newNote, setNewNote] = useState("");
   const [shopFloorOrders, setShopFloorOrders] = useState<ShopFloorOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<ShopFloorOrder[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [statusFilter, setStatusFilter] = useState<string[]>(["All"]); // ✅ Multiple selection
+  const [categoryFilter, setCategoryFilter] = useState<string>("All"); // ✅ Human/Vet filter
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -87,24 +88,31 @@ const ShopFloorTab = () => {
   // Filter orders based on search term and status filter
   useEffect(() => {
     let filtered = shopFloorOrders;
-
-    // Apply status filter
-    if (statusFilter !== "All") {
-      filtered = filtered.filter(order => order.status === statusFilter);
+  
+    // ✅ Apply multiple status filter (with "All" special handling)
+    if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
+      filtered = filtered.filter((order) => statusFilter.includes(order.status));
     }
-
-    // Apply search filter
+  
+    // ✅ Apply Human/Vet filter
+    if (categoryFilter !== "All") {
+      filtered = filtered.filter((order) => order.category === categoryFilter);
+    }
+  
+    // ✅ Apply search filter
     if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(order =>
-        order.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.batch_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        order.product_name?.toLowerCase().includes(lowerSearch) ||
+        order.brand_name?.toLowerCase().includes(lowerSearch) ||
+        order.batch_number?.toLowerCase().includes(lowerSearch) ||
+        order.company_name?.toLowerCase().includes(lowerSearch)
       );
     }
-
+  
     setFilteredOrders(filtered);
-  }, [shopFloorOrders, searchTerm, statusFilter]);
+  }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter]);
+  
 
   // Update status in DB
   const updateOrderStatus = async (orderId: string, newStatus: ShopFloorOrder["status"]) => {
@@ -204,6 +212,7 @@ const ShopFloorTab = () => {
       case "Labelling": return "bg-purple-500 text-white";
       case "Packing": return "bg-orange-500 text-white";
       case "Ready to Dispatch": return "bg-green-500 text-white";
+      case "Dispatched": return "bg-teal-500 text-white";
       default: return "bg-gray-500 text-white";
     }
   };
@@ -215,6 +224,7 @@ const ShopFloorTab = () => {
       case "Labelling": return "border-purple-400";
       case "Packing": return "border-orange-400";
       case "Ready to Dispatch": return "border-green-400";
+      case "Dispatched": return "border-teal-400";
       default: return "border-gray-400";
     }
   };
@@ -272,6 +282,19 @@ const ShopFloorTab = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900">Shop Floor Management</h2>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading orders...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -282,7 +305,7 @@ const ShopFloorTab = () => {
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-4">
+      {/* <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <Input
@@ -308,23 +331,91 @@ const ShopFloorTab = () => {
             </SelectContent>
           </Select>
         </div>
+      </div> */}
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Search orders by product, brand, batch, or customer..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Status Multi Filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-5 h-6 text-gray-500" />
+          <Select
+            onValueChange={(val) => {
+              setStatusFilter((prev) =>
+                prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
+              );
+            }}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by status (multi)" />
+            </SelectTrigger>
+            <SelectContent>
+              {["Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map(
+                (status) => (
+                  <SelectItem key={status} value={status}>
+                    {status} ({getStatusCount(status)})
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Human/Vet Filter */}
+        <div className="flex items-center gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Categories</SelectItem>
+              <SelectItem value="Human">Human</SelectItem>
+              <SelectItem value="Veterinary">Veterinary</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Status Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
         <Card className="text-center p-4 bg-gray-50">
           <div className="text-2xl font-bold text-gray-700 mb-1">{totalOrders}</div>
           <p className="text-xs font-medium text-gray-600">Total Orders</p>
         </Card>
-        {["Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch"].map((status) => {
+        {["Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map((status) => {
           const count = getStatusCount(status);
           return (
             <Card 
               key={status} 
               className={`text-center p-4 cursor-pointer transition-all hover:shadow-md ${
-                statusFilter === status ? 'ring-2 ring-blue-400' : ''
+                statusFilter.includes(status) ? 'ring-2 ring-blue-400' : ''
+
               }`}
-              onClick={() => setStatusFilter(statusFilter === status ? "All" : status)}
+              onClick={() => {
+                if (status === "All") {
+                  // Clicking "All" resets everything else
+                  setStatusFilter(["All"]);
+                } else {
+                  if (statusFilter.includes(status)) {
+                    // Remove the status
+                    const newFilters = statusFilter.filter(s => s !== status);
+                    setStatusFilter(newFilters.length > 0 ? newFilters : ["All"]);
+                  } else {
+                    // Add the status (and remove "All" if present)
+                    const newFilters = [...statusFilter.filter(s => s !== "All"), status];
+                    setStatusFilter(newFilters);
+                  }
+                }
+              }}
             >
               <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-sm font-bold ${getStatusColor(status)}`}>
                 {count}
@@ -343,7 +434,7 @@ const ShopFloorTab = () => {
               <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">No orders found matching your criteria.</p>
               <p className="text-gray-400 text-sm mt-2">
-                {statusFilter !== "All" ? `No orders with status "${statusFilter}"` : "Try adjusting your search or filters"}
+                {statusFilter.length > 0 ? `No orders with status "${statusFilter.join(", ")}"` : "Try adjusting your search or filters"}
               </p>
             </Card>
           </div>
@@ -379,8 +470,8 @@ const ShopFloorTab = () => {
                   {/* Customer and Order Details */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs">
-                      <User className="w-3 h-3 text-gray-500" />
-                      <span className="font-medium text-gray-700">{order.customer_name}</span>
+                      <Building2 className="w-5 h-4 text-gray-500" />
+                      <span className="font-medium text-gray-700">{order.company_name}</span>
                     </div>
                     <div className="bg-gray-50 p-2 rounded">
                       <p className="text-gray-600"><span className="font-medium text-gray-700">Order Quantity : </span> {order.order_quantity}L </p>

@@ -62,6 +62,14 @@ const ProductionTab = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [assignmentFilter, setAssignmentFilter] = useState("all"); // values: "all", "assigned", "unassigned"
+  // const [packingSize, setPackingSize] = useState<number>(0); // ml
+  // const [bottles, setBottles] = useState<number>(0);
+  // const [orderQuantity, setOrderQuantity] = useState<number>(0); // L
+
+  // const calculateOrderQuantity = (size: number, count: number) => {
+  //   if (!size || !count) return 0;
+  //   return (size * count) / 1000; // convert ml → L
+  // };
 
   
 
@@ -151,7 +159,13 @@ const ProductionTab = () => {
       customerId.includes(customerSearch.toLowerCase())
     );
   });
-
+  // const totalLiters = newManufacturingOrder.packing_groups.reduce((sum, group) => {
+  //   const size = Number(group.packing_size); // in ml
+  //   const bottles = Number(group.no_of_bottles);
+  //   if (!size || !bottles) return sum;
+  //   return sum + (size * bottles) / 1000; // convert ml → L
+  // }, 0);
+  
   // Get color based on status
   const getStatusColor = (status: ManufacturingOrder["status"]) => {
     switch (status) {
@@ -187,10 +201,44 @@ const ProductionTab = () => {
     updatedGroups[index] = { ...updatedGroups[index], [key]: value };
     setNewManufacturingOrder({ ...newManufacturingOrder, packing_groups: updatedGroups });
   };
+  // Calculate total liters from packing groups
+  const calculateTotalLiters = () => {
+    return newManufacturingOrder.packing_groups.reduce((sum, group) => {
+      const size = parseFloat(group.packing_size); // handle "60ml", "100ml" strings
+      const bottles = Number(group.no_of_bottles);
+      
+      if (isNaN(size) || isNaN(bottles)) return sum;
+      
+      return sum + (size * bottles) / 1000; // convert ml → L
+    }, 0);
+  };
 
+  // Get the current calculated total
+  const currentTotalLiters = calculateTotalLiters();
+
+  // Update order quantity whenever packing groups change
+  useEffect(() => {
+    const totalLiters = newManufacturingOrder.packing_groups.reduce(
+      (sum, group) => {
+        const size = parseFloat(group.packing_size); // handle "60ml", "100ml"
+        const bottles = Number(group.no_of_bottles);
+
+        if (isNaN(size) || isNaN(bottles)) return sum;
+
+        return sum + (size * bottles) / 1000; // convert ml → L
+      },
+      0
+    );
+
+    setNewManufacturingOrder((prev) => ({
+      ...prev,
+      order_quantity: parseFloat(totalLiters.toFixed(2)), // keep 2 decimals
+    }));
+  }, [newManufacturingOrder.packing_groups]);
+  
   // Handle new manufacturingOrder submission - with Supabase insert
   const handleAddManufacturingOrder = async () => {
-    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.company_name || !newManufacturingOrder.packing_groups || !newManufacturingOrder.order_quantity) {
+    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.company_name || !newManufacturingOrder.packing_groups || currentTotalLiters <= 0) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -218,7 +266,7 @@ const ProductionTab = () => {
         product_id: newManufacturingOrder.product_id,
         customer_id: newManufacturingOrder.customer_id,
         product_name: newManufacturingOrder.product_name,
-        order_quantity: newManufacturingOrder.order_quantity,
+        order_quantity: currentTotalLiters,
         category: newManufacturingOrder.category,
         brand_name: newManufacturingOrder.brand_name,
         company_name: newManufacturingOrder.company_name,
@@ -254,6 +302,7 @@ const ProductionTab = () => {
     // 3️⃣ Update local state (optional if you also re-fetch from DB)
     setManufacturingOrders([...manufacturingOrders, {
       ...manufacturingOrderData[0],
+      order_quantity: currentTotalLiters,
       packing_groups: newManufacturingOrder.packing_groups
     }]);
 
@@ -480,15 +529,24 @@ const ProductionTab = () => {
                   placeholder="Enter brand name"
                 />
               </div>
+              {/* Order Quantity Auto Calculation */}
               <div>
                 <Label htmlFor="order_quantity">Order Quantity (L)</Label>
-                <Input 
+                <Input
                   id="order_quantity"
                   type="number"
-                  value={newManufacturingOrder.order_quantity === 0 ? '' : newManufacturingOrder.order_quantity}
-                  onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, order_quantity: e.target.value === '' ? 0 : Number(e.target.value) })}
-                  placeholder="Enter quantity in L"
+                  value={currentTotalLiters.toFixed(2)}
+                  placeholder="Auto-calculated from packing"
+                  readOnly // 👈 prevents manual editing
+                  className="bg-gray-50"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Calculated from: {newManufacturingOrder.packing_groups
+                    .filter(group => group.packing_size && group.no_of_bottles > 0)
+                    .map((group, idx) => 
+                      `${group.packing_size}ml × ${group.no_of_bottles} bottles`
+                    ).join(' + ') || 'No packing groups defined'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="category">Category *</Label>
@@ -521,6 +579,7 @@ const ProductionTab = () => {
                       <option key={size} value={size}>{size}</option>
                     ))}
                   </select>
+
                   <Input
                     type="number"
                     min={1}
@@ -528,6 +587,7 @@ const ProductionTab = () => {
                     value={group.no_of_bottles === 0 ? "" : group.no_of_bottles}
                     onChange={e => updatePackingGroup(idx, "no_of_bottles", Number(e.target.value))}
                   />
+
                   <Button
                     variant="outline"
                     onClick={() => removePackingGroup(idx)}
@@ -541,7 +601,6 @@ const ProductionTab = () => {
                 + Add packing group
               </Button>
             </div>
-
             {/* <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
@@ -673,10 +732,10 @@ const ProductionTab = () => {
                     </div>
                   </div>
                   <div className="text-right text-sm text-gray-500 space-y-1">
-                    <p>Quantity: {manufacturingOrder.order_quantity}L</p>
-                    <p>Delivery: {manufacturingOrder.expected_delivery_date}</p>
-                    <p>Manufacturing: {manufacturingOrder.manufacturing_date}</p>
-                    <p>Expiry: {manufacturingOrder.expiry_date}</p>
+                    <p>Quantity: {manufacturingOrder.order_quantity || "0"}L</p>
+                    <p>Delivery: {manufacturingOrder.expected_delivery_date || "N.A"} </p>
+                    <p>Manufacturing: {manufacturingOrder.manufacturing_date || "N.A"}</p>
+                    <p>Expiry: {manufacturingOrder.expiry_date || "N.A"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1068,49 +1127,87 @@ const ProductionTab = () => {
 
               {/* Dates */}
               <div className="my-4 grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Expected Delivery Date</Label>
-                  <Input
-                    type="date"
-                    value={selectedManufacturingOrder.expected_delivery_date}
-                    onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expected_delivery_date: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Manufacturing Date</Label>
-                  <Input
-                    type="date"
-                    value={selectedManufacturingOrder.manufacturing_date}
-                    onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, manufacturing_date: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Expiry Date</Label>
-                  <Input
-                    type="date"
-                    value={selectedManufacturingOrder.expiry_date}
-                    onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expiry_date: e.target.value })}
-                  />
-                </div>
+              {isEditing ? (
+                  <div className="flex flex-col">
+                    <Label className="pb-1">Expected Delivery Date</Label>
+                      <Input
+                        type="date"
+                        value={selectedManufacturingOrder.expected_delivery_date}
+                        onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expected_delivery_date: e.target.value })}
+                      />
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
+                    <p className="font-base font-semibold text-gray-900">
+                    Expected Delivery Date :
+                    </p>
+                    <span className="text-lg">{selectedManufacturingOrder.expected_delivery_date || "N.A"}</span>
+                  </div>
+                )}
+                {isEditing ? (
+                  <div className="flex flex-col">
+                    <Label className="pb-1">Manufacturing Date</Label>
+                      <Input
+                        type="date"
+                        value={selectedManufacturingOrder.manufacturing_date}
+                        onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, manufacturing_date: e.target.value })}
+                      />
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
+                    <p className="font-base font-semibold text-gray-900">
+                    Manufacturing Date :
+                    </p>
+                    <span className="text-lg">{selectedManufacturingOrder.manufacturing_date || "N.A"}</span>
+                  </div>
+                )}
+
+                {isEditing ? (
+                  <div className="flex flex-col">
+                    <Label className="pb-1">Expiry Date</Label>
+                      <Input
+                        type="date"
+                        value={selectedManufacturingOrder.expiry_date}
+                        onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expiry_date: e.target.value })}
+                      />
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
+                    <p className="font-base font-semibold text-gray-900">
+                    Expiry Date :
+                    </p>
+                    <span className="text-lg">{selectedManufacturingOrder.expiry_date || "N.A"}</span>
+                  </div>
+                )}
               </div>
 
               {/* Batch Number */}
-              <div className="my-4">
-                <Label>Batch/Badge Number</Label>
-                <Input
-                  value={selectedManufacturingOrder.batch_number ?? ""}
-                  onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: e.target.value })}
-                  placeholder="Unassigned"
-                />
-                {!selectedManufacturingOrder.batch_number && (
-                  <Button
-                    className="mt-2"
-                    onClick={() => assignBatchNumber(selectedManufacturingOrder.order_id)}
-                  >
-                    Assign Badge Number
-                  </Button>
+              {isEditing?(
+                <div className="my-4">
+                  <Label className="pb-1">Batch Number</Label>
+                  <Input
+                    value={selectedManufacturingOrder.batch_number ?? ""}
+                    onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: e.target.value })}
+                    placeholder="Unassigned"
+                  />
+                  {!selectedManufacturingOrder.batch_number && (
+                    <Button
+                      className="mt-2 "
+                      onClick={() => assignBatchNumber(selectedManufacturingOrder.order_id)}
+                    >
+                      Assign Badge Number
+                    </Button>
+                  )}
+                </div>
+                ):(
+                  <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
+                    <p className="font-base font-semibold text-gray-900 ">
+                    Batch Number :
+                    </p>
+                    <span className="text-lg">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
+                  </div>
                 )}
-              </div> 
+               
               
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
