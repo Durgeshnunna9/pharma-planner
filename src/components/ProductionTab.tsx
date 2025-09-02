@@ -30,7 +30,7 @@ interface ManufacturingOrder {
   manufacturing_date: string;
   expiry_date: string;
   packing_groups: PackingGroup[]; // multiple groups now
-  status: "Unassigned" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch";
+  status: "Unassigned" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
 }
 
 const ProductionTab = () => {
@@ -56,12 +56,12 @@ const ProductionTab = () => {
     
   });
   const [filterCategory, setFilterCategory] = useState<"All" | "Human" | "Veterinary">("All");
+  const [assignmentFilter, setAssignmentFilter] = useState<"All" | "Assigned" | "Unassigned">("All");
   // For product and customer search
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [assignmentFilter, setAssignmentFilter] = useState("all"); // values: "all", "assigned", "unassigned"
   // const [packingSize, setPackingSize] = useState<number>(0); // ml
   // const [bottles, setBottles] = useState<number>(0);
   // const [orderQuantity, setOrderQuantity] = useState<number>(0); // L
@@ -169,12 +169,13 @@ const ProductionTab = () => {
   // Get color based on status
   const getStatusColor = (status: ManufacturingOrder["status"]) => {
     switch (status) {
-      case "Unassigned": return "bg-gray-100 text-gray-800";
+      case "Unassigned": return "bg-red-100 text-red-800";
       case "Under Production": return "bg-yellow-100 text-yellow-800";
       case "Filling": return "bg-blue-100 text-blue-800";
       case "Labelling": return "bg-purple-100 text-purple-800";
       case "Packing": return "bg-orange-100 text-orange-800";
       case "Ready to Dispatch": return "bg-green-100 text-green-800";
+      case "Dispatched": return "bg-cyan-100 text-cyan-800"
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -382,8 +383,11 @@ const ProductionTab = () => {
   
     const matchesCategory =
       filterCategory === "All" || manufacturingOrder.category === filterCategory;
-  
-    return matchesSearch && matchesCategory;
+
+    const matchesStatus =
+      assignmentFilter === "All" || manufacturingOrder.status === assignmentFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   // Assign or edit batch number in popup
@@ -414,10 +418,10 @@ const ProductionTab = () => {
   const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
 
   const filteredOrdersByAssignment = sortedOrders.filter(order => {
-    if (assignmentFilter === "assigned") {
+    if (assignmentFilter === "Assigned") {
       return order.batch_number && order.batch_number !== "Unassigned";
     }
-    if (assignmentFilter === "unassigned") {
+    if (assignmentFilter === "Unassigned") {
       return !order.batch_number || order.batch_number === "Unassigned";
     }
     return true; // "all"
@@ -600,7 +604,7 @@ const ProductionTab = () => {
               <Button onClick={addPackingGroup} variant="ghost" className="mt-1">
                 + Add packing group
               </Button>
-            </div>
+            </div> 
             {/* <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
@@ -643,34 +647,49 @@ const ProductionTab = () => {
         </Card>
       )}
 
-      {/* Category Filter Dropdown */}
-      <div className="mt-4 w-48">
-        <Label htmlFor="categoryFilter">Filter by Category</Label>
-        <Select value={filterCategory} onValueChange={(val) => setFilterCategory(val as any)}>
-          <SelectTrigger id="categoryFilter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All</SelectItem>
-            <SelectItem value="Human">Human</SelectItem>
-            <SelectItem value="Veterinary">Veterinary</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/*Filters*/}
+      <div className="grid grid-cols-6">
+        {/* Category Filter Dropdown */}
+        <div className=" w-48">
+          {/* <Label htmlFor="categoryFilter" className="mb-2">Filter by Category</Label> */}
+          <Select value={filterCategory} onValueChange={(val) => setFilterCategory(val as any)}>
+            <SelectTrigger id="categoryFilter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Categories</SelectItem>
+              <SelectItem value="Human">Human</SelectItem>
+              <SelectItem value="Veterinary">Veterinary</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Search input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-        <Input
-          placeholder="Search by product, brand, company "
-          value={manufacturingOrderSearch}
-          onChange={e => setManufacturingOrderSearch(e.target.value)}
-          className="mb-4 pl-8"
-        />
+        {/* Filter of assignment */}
+        <div className=" w-48">
+          {/* <Label htmlFor="categoryFilter" >Filter by Status</Label> */}
+          <Select value={assignmentFilter} onValueChange={(val) => setAssignmentFilter(val as any)}>
+            <SelectTrigger id="categoryFilter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Status</SelectItem>
+              <SelectItem value="Assigned">Assigned</SelectItem>
+              <SelectItem value="Unassigned">Unassigned</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Search input */}
+        <div className="relative  col-span-4">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Search by product, brand, company "
+            value={manufacturingOrderSearch}
+            onChange={e => setManufacturingOrderSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
       </div>
-
-      {/* Filter of assignment */}
-      <div className="flex gap-2 mb-4">
+      {/* <div className="flex gap-2 mb-4">
         <button
           onClick={() => setAssignmentFilter("all")}
           className={`px-4 py-2 rounded ${assignmentFilter === "all" ? "bg-green-600 text-white" : "bg-gray-200"}`}
@@ -689,11 +708,15 @@ const ProductionTab = () => {
         >
           Unassigned
         </button>
-      </div>
+      </div> */}
+
+      
+
+      
 
 
       {/* Orders List */}
-      <div className="grid gap-4">
+      <div className="grid gap-4 ">
         {filteredOrdersByAssignment.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-gray-500">No manufacturing orders found.</p>
@@ -1034,7 +1057,7 @@ const ProductionTab = () => {
               </div>
 
               {/* Packing Groups */}
-              {editForm.packing_groups.length > 1 ? (
+              {editForm.packing_groups.length > 0 ? (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Packing Groups : </h3>
                   {isEditing ? (

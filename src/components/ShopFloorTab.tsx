@@ -235,7 +235,8 @@ const ShopFloorTab = () => {
       case "Filling": return 40;
       case "Labelling": return 60;
       case "Packing": return 80;
-      case "Ready to Dispatch": return 100;
+      case "Ready to Dispatch": return 90;
+      case "Dispatched": return 100;
       default: return 0;
     }
   };
@@ -553,6 +554,7 @@ const ShopFloorTab = () => {
                         <SelectItem value="Labelling">Labelling</SelectItem>
                         <SelectItem value="Packing">Packing</SelectItem>
                         <SelectItem value="Ready to Dispatch">Ready to Dispatch</SelectItem>
+                        <SelectItem value="Dispatched">Dispatched</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
