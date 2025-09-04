@@ -24,7 +24,7 @@ interface ShopFloorOrder {
   brand_name: string;
   company_name: string;
   batch_number: string;
-  status: "All" |"Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
+  status: "All" |"InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
   expected_delivery_date: string;
   manufacturing_date: string;
   expiry_date: string;
@@ -54,7 +54,7 @@ const ShopFloorTab = () => {
           .from("manufacturing_orders_with_packing")
           .select("*")
           .not("batch_number", "is", null)
-          .not("batch_number", "eq", "unassigned");
+          .not("batch_number", "eq", "inqueue");
   
         if (error) {
           console.error("Error fetching orders:", error.message);
@@ -207,6 +207,7 @@ const ShopFloorTab = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "InQueue": return "bg-red-500 text-white"
       case "Under Production": return "bg-yellow-500 text-white";
       case "Filling": return "bg-blue-500 text-white";
       case "Labelling": return "bg-purple-500 text-white";
@@ -219,6 +220,7 @@ const ShopFloorTab = () => {
 
   const getStatusBorderColor = (status: string) => {
     switch (status) {
+      case "InQueue": return "border-red-400"
       case "Under Production": return "border-yellow-400";
       case "Filling": return "border-blue-400";
       case "Labelling": return "border-purple-400";
@@ -231,6 +233,7 @@ const ShopFloorTab = () => {
 
   const getProgressPercentage = (status: string) => {
     switch (status) {
+      case "InQueue": return 10;
       case "Under Production": return 20;
       case "Filling": return 40;
       case "Labelling": return 60;
@@ -360,7 +363,7 @@ const ShopFloorTab = () => {
               <SelectValue placeholder="Filter by status (multi)" />
             </SelectTrigger>
             <SelectContent>
-              {["Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map(
+              {["InQueue", "Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map(
                 (status) => (
                   <SelectItem key={status} value={status}>
                     {status} ({getStatusCount(status)})
@@ -387,12 +390,12 @@ const ShopFloorTab = () => {
       </div>
 
       {/* Status Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
         <Card className="text-center p-4 bg-gray-50">
           <div className="text-2xl font-bold text-gray-700 mb-1">{totalOrders}</div>
           <p className="text-xs font-medium text-gray-600">Total Orders</p>
         </Card>
-        {["Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map((status) => {
+        {["InQueue", "Under Production", "Filling", "Labelling", "Packing", "Ready to Dispatch", "Dispatched"].map((status) => {
           const count = getStatusCount(status);
           return (
             <Card 
@@ -549,6 +552,7 @@ const ShopFloorTab = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white">
+                        <SelectItem value="InQueue">InQueue</SelectItem>
                         <SelectItem value="Under Production">Under Production</SelectItem>
                         <SelectItem value="Filling">Filling</SelectItem>
                         <SelectItem value="Labelling">Labelling</SelectItem>
