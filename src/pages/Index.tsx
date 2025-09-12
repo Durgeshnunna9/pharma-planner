@@ -18,7 +18,7 @@ import CustomersTab from "@/components/CustomersTab";
 import ProductionTab from "@/components/ProductionTab";
 import ShopFloorTab from "@/components/ShopFloorTab";
 import DashboardTab from "@/components/DashboardTab";
-import UsersTab from "@/components/UsersTab";
+// import UsersTab from "@/components/UsersTab";
 import { Button } from "@/components/ui/button";
 import prodImg from "../components/assests/robotic-arm.png"
 
@@ -31,7 +31,7 @@ const Index = () => {
     { id: "customers", label: "Customers", icon: Smile , component: CustomersTab },
     { id: "production", label: "Production", icon: Factory, component: ProductionTab },
     { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab },
-    { id: "users", label: "Users", icon: IdCardLanyard  , component: UsersTab },
+    // { id: "users", label: "Users", icon: IdCardLanyard  , component: UsersTab },
     
     
   ];
@@ -51,7 +51,7 @@ const Index = () => {
         {/* Tab Navigation - Dynamic positioning */}
         <div className={`flex flex-col items-center mb-8 ${activeTab ? 'fixed top-0 left-0 right-0 z-50 bg-white shadow-lg py-4' : ''}`}>
           {/* Tabs */}
-          <div className={`grid grid-cols-6 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
+          <div className={`grid grid-cols-5 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (

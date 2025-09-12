@@ -30,7 +30,7 @@ interface ManufacturingOrder {
   manufacturing_date: string;
   expiry_date: string;
   packing_groups: PackingGroup[]; // multiple groups now
-  status: "Unassigned" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
+  status: "Unassigned" | "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
 }
 
 const ProductionTab = () => {
@@ -40,7 +40,7 @@ const ProductionTab = () => {
   const [selectedManufacturingOrder, setSelectedManufacturingOrder] = useState<ManufacturingOrder | null>(null);
   const [showManufacturingOrderDetails, setShowManufacturingOrderDetails] = useState(false);
   const { toast } = useToast();
-  const [newManufacturingOrder, setNewManufacturingOrder] = useState<Omit<ManufacturingOrder, "order_id" | "batch_number" | "status">>({
+  const [newManufacturingOrder, setNewManufacturingOrder] = useState<Omit<ManufacturingOrder, "order_id" >>({
     product_id: "",
     customer_id: "",
     product_name: "",
@@ -52,6 +52,8 @@ const ProductionTab = () => {
     category: "Human" as "Human" | "Veterinary",
     manufacturing_date: "",
     expiry_date: "",
+    batch_number: "",
+    status: "Unassigned",
 
     
   });
@@ -88,6 +90,8 @@ const ProductionTab = () => {
     packing_groups: [
       { packing_size: "", no_of_bottles: 0}
     ],
+    batch_number: "" ,
+    status: "Unassigned"
   });
 
   useEffect(() => {
@@ -169,6 +173,7 @@ const ProductionTab = () => {
   // Get color based on status
   const getStatusColor = (status: ManufacturingOrder["status"]) => {
     switch (status) {
+      case "InQueue": return "bg-pink-100 text-pink-800";
       case "Unassigned": return "bg-red-100 text-red-800";
       case "Under Production": return "bg-yellow-100 text-yellow-800";
       case "Filling": return "bg-blue-100 text-blue-800";
@@ -203,8 +208,8 @@ const ProductionTab = () => {
     setNewManufacturingOrder({ ...newManufacturingOrder, packing_groups: updatedGroups });
   };
   // Calculate total liters from packing groups
-  const calculateTotalLiters = () => {
-    return newManufacturingOrder.packing_groups.reduce((sum, group) => {
+  const calculateTotalLiters = (packing_groups: PackingGroup[]) => {
+    return packing_groups.reduce((sum, group) => {
       const size = parseFloat(group.packing_size); // handle "60ml", "100ml" strings
       const bottles = Number(group.no_of_bottles);
       
@@ -215,7 +220,8 @@ const ProductionTab = () => {
   };
 
   // Get the current calculated total
-  const currentTotalLiters = calculateTotalLiters();
+  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups);
+  const currentEditTotalLiters = calculateTotalLiters(editForm.packing_groups);
 
   // Update order quantity whenever packing groups change
   useEffect(() => {
@@ -320,6 +326,8 @@ const ProductionTab = () => {
       expected_delivery_date: "",
       manufacturing_date: "",
       expiry_date: "",
+      batch_number: "",
+      status: "Unassigned"
     });
     setShowAddForm(false);
 
@@ -389,6 +397,12 @@ const ProductionTab = () => {
 
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  // useEffect(() => {
+  //   if (!isOpen) {
+  //     setIsEditing(false); // reset edit mode whenever modal closes
+  //   }
+  // }, [isOpen]);
 
   // Assign or edit batch number in popup
   const assignBatchNumber = (order_id: string) => {
@@ -672,8 +686,8 @@ const ProductionTab = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All">All Status</SelectItem>
-              <SelectItem value="Assigned">Assigned</SelectItem>
+              
+              <SelectItem value="All">Assigned</SelectItem>
               <SelectItem value="Unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
@@ -769,129 +783,24 @@ const ProductionTab = () => {
 
 
       {/* Order Details Modal */}
-      {/* {selectedManufacturingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white rounded p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto relative">
-            <button 
-              onClick={() => setSelectedManufacturingOrder(null)} 
-              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
-              aria-label="Close modal"
-            >
-              &times;
-            </button>
-            <h2 className="text-2xl font-bold mb-4">{selectedManufacturingOrder.product_name}</h2>
-            <p><b>Category:</b> {selectedManufacturingOrder.category}</p>
-            <p><b>Brand:</b> {selectedManufacturingOrder.brand_name}</p>
-            <p><b>Customer:</b> {selectedManufacturingOrder.company_name}</p>
+      <Dialog open={showManufacturingOrderDetails} onOpenChange={(open) => {
+          setShowManufacturingOrderDetails(open);
 
-            <div className="my-4">
-              <Label>Batch/Badge Number</Label>
-              <Input
-                value={selectedManufacturingOrder.batch_number ?? ""}
-                onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: e.target.value })}
-                placeholder="Unassigned"
-              />
-              {!selectedManufacturingOrder.batch_number && (
-                <Button
-                  className="mt-2"
-                  onClick={() => assignBatchNumber(selectedManufacturingOrder.order_id)}
-                >
-                  Assign Badge Number
-                </Button>
-              )}
-            </div>
-
-            <div className="my-4">
-              <Label>Packing Groups (Packing Size - No. of Bottles)</Label>
-              {selectedManufacturingOrder.packing_groups?.map((group, i) => (
-                <div key={i} className="flex gap-4 items-center mb-2">
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={group.packing_size}
-                    onChange={e => {
-                      const updatedGroups = [...selectedManufacturingOrder.packing_groups];
-                      updatedGroups[i].packing_size = e.target.value;
-                      setSelectedManufacturingOrder({ ...selectedManufacturingOrder, packing_groups: updatedGroups });
-                    }}
-                  >
-                    <option value="">Select packing size</option>
-                    {products.find(p => p.external_id === selectedManufacturingOrder.product_id)?.packing_sizes.map((size: string) => (
-                      <option key={size} value={size}>{size}</option>
-                    ))}
-                  </select>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={group.no_of_bottles}
-                    onChange={e => {
-                      const val = Number(e.target.value);
-                      const updatedGroups = [...selectedManufacturingOrder.packing_groups];
-                      updatedGroups[i].no_of_bottles = val;
-                      setSelectedManufacturingOrder({ ...selectedManufacturingOrder, packing_groups: updatedGroups });
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (selectedManufacturingOrder.packing_groups.length <= 1) return;
-                      const updatedGroups = [...selectedManufacturingOrder.packing_groups];
-                      updatedGroups.splice(i, 1);
-                      setSelectedManufacturingOrder({ ...selectedManufacturingOrder, packing_groups: updatedGroups });
-                    }}
-                    disabled={selectedManufacturingOrder.packing_groups.length <= 1}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="ghost"
-                onClick={() => setSelectedManufacturingOrder({
-                  ...selectedManufacturingOrder,
-                  packing_groups: [...(selectedManufacturingOrder.packing_groups ?? []), { packing_size: "", no_of_bottles: 0 }]
-                })}
-              >
-                + Add Packing Group
-              </Button>
-            </div>
-
-            <div className="my-4 grid grid-cols-3 gap-4">
-              <div>
-                <Label>Expected Delivery Date</Label>
-                <Input
-                  type="date"
-                  value={selectedManufacturingOrder.expected_delivery_date}
-                  onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expected_delivery_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Manufacturing Date</Label>
-                <Input
-                  type="date"
-                  value={selectedManufacturingOrder.manufacturing_date}
-                  onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, manufacturing_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Expiry Date</Label>
-                <Input
-                  type="date"
-                  value={selectedManufacturingOrder.expiry_date}
-                  onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, expiry_date: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-4 mt-6">
-              <Button variant="outline" onClick={() => setSelectedManufacturingOrder(null)}>Cancel</Button>
-              <Button onClick={saveOrderEdits} className="bg-blue-600 hover:bg-blue-700 text-white">Save</Button>
-            </div>
-          </div>
-        </div>
-      )} */}
-
-      {/* Order Details Modal */}
-      <Dialog open={showManufacturingOrderDetails} onOpenChange={setShowManufacturingOrderDetails}>
+          if (!open && isEditing) {
+            // Reset edit mode and form when modal closes
+            setIsEditing(false);
+            setEditForm({
+              product_name: selectedManufacturingOrder.product_name,
+              category: selectedManufacturingOrder.category,
+              order_quantity: selectedManufacturingOrder.order_quantity,
+              brand_name: selectedManufacturingOrder.brand_name,
+              company_name: selectedManufacturingOrder.company_name,
+              packing_groups: [...selectedManufacturingOrder.packing_groups],
+              batch_number: selectedManufacturingOrder.batch_number,
+              status: selectedManufacturingOrder.status,
+            });
+          }
+        }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -1031,19 +940,14 @@ const ProductionTab = () => {
               <div>
                 {isEditing ? (
                   <div className="flex flex-col">
-                    <label className="text-lg font-semibold text-gray-900 mb-1">
-                      Order Quantity (L)
-                    </label>
+                    <Label htmlFor="order_quantity">Order Quantity (L)</Label>
                     <Input
+                      id="order_quantity"
                       type="number"
-                      value={editForm.order_quantity}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          order_quantity:
-                            e.target.value === "" ? 0 : Number(e.target.value),
-                        })
-                      }
+                      value={currentEditTotalLiters.toFixed(2)}
+                      placeholder="Auto-calculated from packing"
+                      readOnly // 👈 prevents manual editing
+                      className="bg-gray-50"
                     />
                   </div>
                 ) : (
@@ -1055,7 +959,7 @@ const ProductionTab = () => {
                   </div>
                 )}
               </div>
-
+              
               {/* Packing Groups */}
               {editForm.packing_groups.length > 0 ? (
                 <div>
@@ -1081,7 +985,7 @@ const ProductionTab = () => {
                           <Input
                             type="number"
                             min={0}
-                            value={group.no_of_bottles}
+                            value={group.no_of_bottles === 0 ? "" : group.no_of_bottles}
                             onChange={e => {
                               const updated = [...editForm.packing_groups];
                               updated[idx] = { ...updated[idx], no_of_bottles: e.target.value === "" ? 0 : Number(e.target.value)};
@@ -1149,7 +1053,7 @@ const ProductionTab = () => {
               </div>
 
               {/* Dates */}
-              <div className="my-4 grid grid-cols-3 gap-4">
+              {/* <div className="my-4 grid grid-cols-3 gap-4">
               {isEditing ? (
                   <div className="flex flex-col">
                     <Label className="pb-1">Expected Delivery Date</Label>
@@ -1202,21 +1106,24 @@ const ProductionTab = () => {
                     <span className="text-lg">{selectedManufacturingOrder.expiry_date || "N.A"}</span>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {/* Batch Number */}
               {isEditing?(
                 <div className="my-4">
                   <Label className="pb-1">Batch Number</Label>
                   <Input
-                    value={selectedManufacturingOrder.batch_number ?? ""}
-                    onChange={e => setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: e.target.value })}
+                    value={editForm.batch_number ?? ""}
+                    onChange={e => setEditForm({ ...editForm, batch_number: e.target.value })}
                     placeholder="Unassigned"
                   />
-                  {!selectedManufacturingOrder.batch_number && (
+                  {!editForm.batch_number && (
                     <Button
                       className="mt-2 "
-                      onClick={() => assignBatchNumber(selectedManufacturingOrder.order_id)}
+                      onClick={() => {
+                        const batch = generateBatchNumber(editForm.category ?? "Human");
+                        setEditForm({ ...editForm, batch_number: batch });
+                      }}
                     >
                       Assign Badge Number
                     </Button>
@@ -1242,19 +1149,22 @@ const ProductionTab = () => {
                       onClick={async () => {
                         // 1) Update core manufacturing order fields
                         const { error: orderError } = await supabase
-                          .from('manufacturing_orders')
-                          .update({
-                            product_name: editForm.product_name,
-                            category: editForm.category,
-                            order_quantity: editForm.order_quantity,
-                            brand_name: editForm.brand_name,
-                            company_name: editForm.company_name,
-                            expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
-                            manufacturing_date: selectedManufacturingOrder.manufacturing_date,
-                            expiry_date: selectedManufacturingOrder.expiry_date,
-                            batch_number: selectedManufacturingOrder.batch_number,
-                          })
-                          .eq('order_id', selectedManufacturingOrder.order_id);
+                        .from('manufacturing_orders')
+                        .update({
+                          product_name: editForm.product_name,
+                          category: editForm.category,
+                          order_quantity: editForm.order_quantity,
+                          brand_name: editForm.brand_name,
+                          company_name: editForm.company_name,
+                          // expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
+                          // manufacturing_date: selectedManufacturingOrder.manufacturing_date,
+                          // expiry_date: selectedManufacturingOrder.expiry_date,
+                          batch_number: editForm.batch_number, // ✅ FIXED (was selectedManufacturingOrder.batch_number)
+                          status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
+                          ? "InQueue"
+                          : selectedManufacturingOrder.status, // ✅ fixed condition
+                        })
+                        .eq('order_id', selectedManufacturingOrder.order_id);
 
                         if (orderError) {
                           console.error(orderError);
@@ -1303,17 +1213,27 @@ const ProductionTab = () => {
                           expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
                           manufacturing_date: selectedManufacturingOrder.manufacturing_date,
                           expiry_date: selectedManufacturingOrder.expiry_date,
-                          batch_number: selectedManufacturingOrder.batch_number,
+                          batch_number: editForm.batch_number, // ✅ use editForm
+                          status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
+                          ? "InQueue"
+                          : selectedManufacturingOrder.status, // ✅ fixed condition
                         };
 
-                        setManufacturingOrders(prev => prev.map(o => o.order_id === updated.order_id ? updated : o));
+                        setManufacturingOrders(prev =>
+                          prev.map(o => o.order_id === updated.order_id ? updated : o)
+                        );
                         setSelectedManufacturingOrder(updated);
                         setIsEditing(false);
-                        toast({ title: 'Manufacturing order updated', description: 'Details updated successfully.' });
+
+                        toast({
+                          title: 'Manufacturing order updated',
+                          description: 'Details updated successfully.'
+                        });
                       }}
                     >
                       Save
                     </Button>
+
 
                     {/* CANCEL BUTTON */}
                     <Button
@@ -1327,6 +1247,8 @@ const ProductionTab = () => {
                           brand_name:selectedManufacturingOrder.brand_name,
                           company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...selectedManufacturingOrder.packing_groups],
+                          status: selectedManufacturingOrder.status,
+                          batch_number: selectedManufacturingOrder.batch_number
                         });
                       }}
                     >
@@ -1346,6 +1268,8 @@ const ProductionTab = () => {
                           brand_name:selectedManufacturingOrder.brand_name,
                           company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...(selectedManufacturingOrder.packing_groups || [])],
+                          status: selectedManufacturingOrder.status,
+                          batch_number: selectedManufacturingOrder.batch_number
                         });
                         setIsEditing(true);
                       }}
