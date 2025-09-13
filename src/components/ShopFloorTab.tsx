@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Search, MessageSquare, Package2, Filter, Calendar, User, Hash, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../supabaseClient";
+import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+
 
 interface Notes{
   content: string;
@@ -24,7 +26,7 @@ interface ShopFloorOrder {
   brand_name: string;
   company_name: string;
   batch_number: string;
-  status: "All" |"InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
+  status: "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
   expected_delivery_date: string;
   manufacturing_date: string;
   expiry_date: string;
@@ -44,6 +46,17 @@ const ShopFloorTab = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("All"); // ✅ Human/Vet filter
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [priorityOrderIds, setPriorityOrderIds] = useState<Set<string>>(new Set());
+  const [priorityFirst, setPriorityFirst] = useState<boolean>(true || false);
+  const STATUS_FLOW: ShopFloorOrder["status"][] = [
+    "InQueue",
+    "Under Production",
+    "Filling",
+    "Labelling",
+    "Packing",
+    "Ready to Dispatch",
+    "Dispatched",
+  ];
 
   // Load shop floor orders from DB
   useEffect(() => {
@@ -83,8 +96,29 @@ const ShopFloorTab = () => {
   
     fetchOrders();
   }, [toast]);
-  
 
+  // Overdue alert when screen loads or data updates
+  useEffect(() => {
+    if (isLoading) return;
+    if (!shopFloorOrders || shopFloorOrders.length === 0) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdueCount = shopFloorOrders.reduce((acc, order) => {
+      if (!order.expected_delivery_date) return acc;
+      const d = new Date(order.expected_delivery_date);
+      d.setHours(0, 0, 0, 0);
+      return acc + (d < today && order.status !== "Dispatched" ? 1 : 0);
+    }, 0);
+    if (overdueCount > 0) {
+      toast({
+        title: "Delivery due",
+        description: `${overdueCount} order(s) are past expected delivery date and not dispatched`,
+        variant: "destructive",
+      });
+    }
+  }, [isLoading, shopFloorOrders, toast]);
+
+  
   // Filter orders based on search term and status filter
   useEffect(() => {
     let filtered = shopFloorOrders;
@@ -109,11 +143,22 @@ const ShopFloorTab = () => {
         order.company_name?.toLowerCase().includes(lowerSearch)
       );
     }
-  
-    setFilteredOrders(filtered);
-  }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter]);
-  
+    // ✅ Sort by priority (optional) then by expected delivery date (soonest first)
+    const sorted = [...filtered].sort((a, b) => {
+      if (priorityFirst) {
+        const ap = priorityOrderIds.has(a.order_id) ? 1 : 0;
+        const bp = priorityOrderIds.has(b.order_id) ? 1 : 0;
+        if (ap !== bp) return bp - ap; // priority first
+      }
+      const ad = a.expected_delivery_date ? new Date(a.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
+      const bd = b.expected_delivery_date ? new Date(b.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
+      return ad - bd; // quickest delivery (earliest date) first
+    });
 
+    setFilteredOrders(sorted);
+  }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds]);
+  
+  
   // Update status in DB
   const updateOrderStatus = async (orderId: string, newStatus: ShopFloorOrder["status"]) => {
     try {
@@ -207,26 +252,34 @@ const ShopFloorTab = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "InQueue": return "bg-red-500 text-white"
-      case "Under Production": return "bg-yellow-500 text-white";
-      case "Filling": return "bg-blue-500 text-white";
-      case "Labelling": return "bg-purple-500 text-white";
-      case "Packing": return "bg-orange-500 text-white";
-      case "Ready to Dispatch": return "bg-green-500 text-white";
-      case "Dispatched": return "bg-teal-500 text-white";
-      default: return "bg-gray-500 text-white";
+      case "InQueue": 
+        return "bg-red-600 text-white"; // Deep red (critical, starting point)
+      case "Under Production": 
+        return "bg-orange-500 text-white"; // Orange (work in progress)
+      case "Filling": 
+        return "bg-amber-400 text-white"; // Warm yellow-orange
+      case "Labelling": 
+        return "bg-yellow-400 text-black"; // Bright yellow
+      case "Packing": 
+        return "bg-sky-500 text-white"; // Sky blue
+      case "Ready to Dispatch": 
+        return "bg-indigo-500 text-white"; // Indigo (almost done)
+      case "Dispatched": 
+        return "bg-green-600 text-white"; // Success green (final stage)
+      default: 
+        return "bg-gray-500 text-white";
     }
   };
 
   const getStatusBorderColor = (status: string) => {
     switch (status) {
-      case "InQueue": return "border-red-400"
-      case "Under Production": return "border-yellow-400";
-      case "Filling": return "border-blue-400";
-      case "Labelling": return "border-purple-400";
-      case "Packing": return "border-orange-400";
-      case "Ready to Dispatch": return "border-green-400";
-      case "Dispatched": return "border-teal-400";
+      case "InQueue": return "border-red-600"
+      case "Under Production": return "border-orange-500";
+      case "Filling": return "border-amber-400";
+      case "Labelling": return "border-yellow-400";
+      case "Packing": return "border-sky-500";
+      case "Ready to Dispatch": return "border-indigo-500";
+      case "Dispatched": return "border-green-600";
       default: return "border-gray-400";
     }
   };
@@ -298,6 +351,13 @@ const ShopFloorTab = () => {
       </div>
     );
   }
+  const calculateIsOverdue = (order: { expected_delivery_date: string | null; status: string }) => {
+    return order.expected_delivery_date 
+      ? new Date(order.expected_delivery_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0) 
+        && order.status !== "Dispatched"
+      : false;
+  };
+  // removed unused placeholder function updatePriority
 
   return (
     <div className="space-y-6">
@@ -387,6 +447,17 @@ const ShopFloorTab = () => {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Priority-first toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={priorityFirst ? "default" : "outline"}
+            className={priorityFirst ? "bg-pink-600 text-white hover:bg-pink-700" : ""}
+            onClick={() => setPriorityFirst(v => !v)}
+          >
+            {priorityFirst ? "Priority first: ON" : "Priority first: OFF"}
+          </Button>
+        </div>
       </div>
 
       {/* Status Summary Cards */}
@@ -446,12 +517,32 @@ const ShopFloorTab = () => {
           filteredOrders.map((order) => (
             <Card 
               key={order.order_id} 
-              className={`hover:shadow-lg transition-all duration-300 cursor-pointer border-2 ${getStatusBorderColor(order.status)} ${
+              className={`relative hover:shadow-lg transition-all duration-300 cursor-pointer border-2 ${getStatusBorderColor(order.status)} ${
                 selectedOrder === order.order_id ? "ring-2 ring-blue-200" : ""
               }`}
             >
               <CardContent className="p-6">
                 <div className="space-y-4">
+                  {/* Priority Star */}
+                  <button
+                    aria-label="Toggle priority"
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPriorityOrderIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(order.order_id)) next.delete(order.order_id); else next.add(order.order_id);
+                        return next;
+                      });
+                    }}
+                    title={priorityOrderIds.has(order.order_id) ? "Unset priority" : "Set as priority"}
+                  >
+                    <Star
+                      className={`${priorityOrderIds.has(order.order_id) ? "text-yellow-500" : "text-gray-300"}`}
+                      fill={priorityOrderIds.has(order.order_id) ? "#eab308" : "none"}
+                      size={18}
+                    />
+                  </button>
                   {/* Header with Product Info */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -511,7 +602,7 @@ const ShopFloorTab = () => {
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className="text-gray-600 text-xs"> <span className="text-xs font-semibold text-black">Expected Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
+                      <span className={`text-gray-600 ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-500 text-xs"}`}> <span className="text-xs font-semibold text-black">Expected Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3 text-gray-500" />
@@ -527,7 +618,13 @@ const ShopFloorTab = () => {
                     </div> */}
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Current Status Badge */}
+                  <div className="flex justify-center">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </div>
+                  {/* Progress and Controls */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-medium text-gray-700">Progress</span>
@@ -535,41 +632,44 @@ const ShopFloorTab = () => {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
-                        className="h-2 rounded-full bg-green-500 transition-all duration-300"
+                        className="h-2 rounded-full bg-fuchsia-600 transition-all duration-300"
                         style={{ width: `${getProgressPercentage(order.status)}%` }}
                       ></div>
                     </div>
                   </div>
-
-                  {/* Status Dropdown */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700">Update Status</label>
-                    <Select 
-                      value={order.status} 
-                      onValueChange={(value) => updateOrderStatus(order.order_id, value as ShopFloorOrder["status"])}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        <SelectItem value="InQueue">InQueue</SelectItem>
-                        <SelectItem value="Under Production">Under Production</SelectItem>
-                        <SelectItem value="Filling">Filling</SelectItem>
-                        <SelectItem value="Labelling">Labelling</SelectItem>
-                        <SelectItem value="Packing">Packing</SelectItem>
-                        <SelectItem value="Ready to Dispatch">Ready to Dispatch</SelectItem>
-                        <SelectItem value="Dispatched">Dispatched</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex gap-2 items-center">
+                    {(() => {
+                      const idx = STATUS_FLOW.indexOf(order.status);
+                      const prevStatus = idx > 0 ? STATUS_FLOW[idx - 1] : null;
+                      const nextStatus = idx < STATUS_FLOW.length - 1 ? STATUS_FLOW[idx + 1] : null;
+                      return (
+                        <div className="flex justify-between w-full mr-4 ml-4">
+                          {prevStatus ? (
+                            <Button
+                            disabled={!prevStatus}
+                            onClick={() => prevStatus && updateOrderStatus(order.order_id, prevStatus)}
+                            className="h-6 px-2 text-[11px] leading-none bg-slate-600 "
+                            >
+                              <ChevronLeft className="w-3 h-3" />
+                              {`Move back to ${prevStatus}`}
+                              
+                            </Button>
+                          ):(<div></div>)}
+                          {nextStatus ? (
+                            <Button
+                              disabled={!nextStatus}
+                              onClick={() => nextStatus && updateOrderStatus(order.order_id, nextStatus)}
+                              className="h-6 px-2 text-[11px] leading-none bg-slate-600 "
+                            >
+                              {nextStatus ? `Move to ${nextStatus}` : ""}
+                              <ChevronRight className="w-3 h-3" />
+                            </Button>
+                          ) : (<div></div>)}
+                        </div>
+                      );
+                    })()}
                   </div>
-
-                  {/* Current Status Badge */}
-                  <div className="flex justify-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </div>
-
+                  
                   {/* Notes Section */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">

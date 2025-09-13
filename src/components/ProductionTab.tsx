@@ -79,9 +79,10 @@ const ProductionTab = () => {
   // Fetch products and customers
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
-
+  // type ManufacturingOrderEditable = Omit<ManufacturingOrder,  "product_id" | "customer_id">;
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
+    order_id:'',
     product_name: '',
     order_quantity: 0,
     category: 'Human' as 'Human' | 'Veterinary',
@@ -91,7 +92,8 @@ const ProductionTab = () => {
       { packing_size: "", no_of_bottles: 0}
     ],
     batch_number: "" ,
-    status: "Unassigned"
+    status: "Unassigned",
+    
   });
 
   useEffect(() => {
@@ -123,25 +125,25 @@ const ProductionTab = () => {
     fetchData();
   }, []);
 
-  let orderCounter = {
-    Human: 0,
-    Veterinary: 0
-  };
+  // let orderCounter = {
+  //   Human: 0,
+  //   Veterinary: 0
+  // };
 
-  // Generate batch number (only on assignment)
-  const generateBatchNumber = (category: "Human" | "Veterinary") => {
-    // Choose prefix based on category
-    const prefix = category === "Human" ? "SFH25" : "SFV25";
+  // // Generate batch number (only on assignment)
+  // const generateBatchNumber = (category: "Human" | "Veterinary") => {
+  //   // Choose prefix based on category
+  //   const prefix = category === "Human" ? "SFH25" : "SFV25";
     
-    // Increment counter for this category
-    orderCounter[category] += 1;
+  //   // Increment counter for this category
+  //   orderCounter[category] += 1;
   
-    // Format as 3-digit padded number (e.g., 001, 002, 003)
-    const suffix = String(orderCounter[category]).padStart(3, "0");
+  //   // Format as 3-digit padded number (e.g., 001, 002, 003)
+  //   const suffix = String(orderCounter[category]).padStart(3, "0");
   
-    // Combine prefix + suffix
-    return `${prefix}${suffix}`;
-  };
+  //   // Combine prefix + suffix
+  //   return `${prefix}${suffix}`;
+  // };
 
   // Product selected for packing sizes
   const selectedProduct = products.find(p => p.external_id === newManufacturingOrder.product_id);
@@ -265,6 +267,17 @@ const ProductionTab = () => {
         return;
       }
     }
+    // 🟢 Convert month-year fields to valid DATE before insert
+    let manufacturingDate: string | null = null;
+    if (newManufacturingOrder.manufacturing_date) {
+      // assuming manufacturing_date is coming in as "2025-09"
+      manufacturingDate = `${newManufacturingOrder.manufacturing_date}-01`;
+    }
+
+    let expiryDate: string | null = null;
+    if (newManufacturingOrder.expiry_date) {
+      expiryDate = `${newManufacturingOrder.expiry_date}-01`;
+    }
 
     // 1️⃣ Insert Manufacturing Order
     const { data: manufacturingOrderData, error: manufacturingOrderError } = await supabase
@@ -277,6 +290,9 @@ const ProductionTab = () => {
         category: newManufacturingOrder.category,
         brand_name: newManufacturingOrder.brand_name,
         company_name: newManufacturingOrder.company_name,
+        manufacturing_date: newManufacturingOrder.manufacturing_date ? `${newManufacturingOrder.manufacturing_date}-01` : null,  // 🟢 use converted date
+        expiry_date: newManufacturingOrder.expiry_date ? `${newManufacturingOrder.expiry_date}-01` : null, // 🟢 use converted date
+        status: newManufacturingOrder.status || "Unassigned",
         // optionally store other fields like dates or status
       }])
       .select();
@@ -405,13 +421,39 @@ const ProductionTab = () => {
   // }, [isOpen]);
 
   // Assign or edit batch number in popup
-  const assignBatchNumber = (order_id: string) => {
-    const batch = generateBatchNumber(selectedManufacturingOrder?.category ?? "Human");
-    setManufacturingOrders((prev) => 
-      prev.map(o => o.order_id === order_id ? { ...o, batch_number: batch } : o)
-    );
-    if (selectedManufacturingOrder && selectedManufacturingOrder.order_id === order_id) {
-      setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: batch });
+  const assignBatchNumber = async (orderId: string, category: "Human" | "Veterinary") => {
+    try {
+      // Call the correct function depending on category
+      const fnName = category === "Human" ? "increment_human_batch" : "increment_veterinary_batch";
+      
+      const { data, error } = await supabase.rpc(fnName);
+      if (error) throw error;
+  
+      const newCount = data as number;
+      const prefix = category === "Human" ? "SFH25" : "SFV25"; // adjust year prefix if needed
+      const batch = `${prefix}${String(newCount).padStart(3, "0")}`;
+  
+      // Save batch number back to the order in DB
+      const { error: updateError } = await supabase
+        .from("manufacturing_orders")
+        .update({ batch_number: batch })
+        .eq("order_id", orderId);
+  
+      if (updateError) throw updateError;
+  
+      // Update local state too
+      setManufacturingOrders(prev =>
+        prev.map(o => o.order_id === orderId ? { ...o, batch_number: batch } : o)
+      );
+  
+      if (selectedManufacturingOrder?.order_id === orderId) {
+        setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: batch });
+      }
+  
+      return batch;
+    } catch (err) {
+      console.error("Error assigning batch number:", err);
+      return null;
     }
   };
   // Save edits from modal (including batch_number, packing_groups etc)
@@ -428,8 +470,8 @@ const ProductionTab = () => {
     (a, b) => Number(b.order_id) - Number(a.order_id)
   );
 
-  const assignedOrders = sortedOrders.filter(order => order.batch_number !== null && order.status !== "Unassigned");
-  const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
+  // const assignedOrders = sortedOrders.filter(order => order.batch_number !== null && order.status !== "Unassigned");
+  // const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
 
   const filteredOrdersByAssignment = sortedOrders.filter(order => {
     if (assignmentFilter === "Assigned") {
@@ -790,6 +832,7 @@ const ProductionTab = () => {
             // Reset edit mode and form when modal closes
             setIsEditing(false);
             setEditForm({
+              order_id:selectedManufacturingOrder.order_id,
               product_name: selectedManufacturingOrder.product_name,
               category: selectedManufacturingOrder.category,
               order_quantity: selectedManufacturingOrder.order_quantity,
@@ -804,7 +847,7 @@ const ProductionTab = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span className="text-2xl font-bold">ManufacturingOrder Details</span>
+              <span className="text-3xl font-bold text-gray-800 mb-2 border-b-2 border-gray-200 pb-1">Manufacturing Order Details</span>
             </DialogTitle>
           </DialogHeader>
           
@@ -817,7 +860,7 @@ const ProductionTab = () => {
                     {isEditing ? (
                       <div className="relative">
                         <div>
-                          <p className="text-base">Product: </p>
+                          <p className="text-sm font-bold text-gray-900">Product: </p>
                           <Input
                             value={editForm.product_name}
                             onChange={(e) => {
@@ -855,7 +898,7 @@ const ProductionTab = () => {
                       </div>
                     ) : (
                       <div>
-                        <p className=" italic">Product:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.product_name}</span> </p>
+                        <p className="text-sm font-bold text-gray-900 ">Product:  <span className="text-sm font-semibold">{selectedManufacturingOrder.product_name}</span> </p>
                       </div>
                     )}
                   </p>
@@ -867,7 +910,7 @@ const ProductionTab = () => {
                     {isEditing ? (
                       <div className="relative">
                         <div>
-                          <p className="text-base">Company: </p>
+                          <p className="text-sm font-bold text-gray-900">Company: </p>
                           <Input
                             value={editForm.company_name}
                             onChange={(e) => {
@@ -904,7 +947,7 @@ const ProductionTab = () => {
                       </div>
                     ) : (
                       <div>
-                        <p className=" italic">Company:  <span className="font-bold text-gray-700">{selectedManufacturingOrder.company_name}</span> </p>
+                        <p className="text-sm font-bold text-gray-900 ">Company:  <span className="text-sm font-semibold">{selectedManufacturingOrder.company_name}</span> </p>
                         
                       </div>
                     )}
@@ -926,7 +969,7 @@ const ProductionTab = () => {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       selectedManufacturingOrder.category === "Human"
                         ? "bg-blue-100 text-blue-800"
                         : "bg-purple-100 text-purple-800"
@@ -940,7 +983,7 @@ const ProductionTab = () => {
               <div>
                 {isEditing ? (
                   <div className="flex flex-col">
-                    <Label htmlFor="order_quantity">Order Quantity (L)</Label>
+                    <Label htmlFor="order_quantity" className="text-sm font-bold text-gray-900 pb-1">Order Quantity (L)</Label>
                     <Input
                       id="order_quantity"
                       type="number"
@@ -952,10 +995,10 @@ const ProductionTab = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-sm font-bold text-gray-900">
                       Order Quantity (L):
                     </h3>
-                    <span className="text-lg">{selectedManufacturingOrder.order_quantity}L</span>
+                    <span className="text-sm">{selectedManufacturingOrder.order_quantity}L</span>
                   </div>
                 )}
               </div>
@@ -963,7 +1006,7 @@ const ProductionTab = () => {
               {/* Packing Groups */}
               {editForm.packing_groups.length > 0 ? (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Packing Groups : </h3>
+                  <h3 className="text-sm font-bold text-gray-900 mb-1">Packing Groups : </h3>
                   {isEditing ? (
                     <div className="flex flex-col gap-2">
                       {editForm.packing_groups.map((group, idx) => (
@@ -1017,7 +1060,7 @@ const ProductionTab = () => {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {selectedManufacturingOrder.packing_groups?.map((group, index) => (
-                        <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                        <span key={index} className="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-xs font-medium">
                           {group.packing_size} : {group.no_of_bottles}
                         </span>
                       ))}
@@ -1034,7 +1077,7 @@ const ProductionTab = () => {
               <div>
                 {isEditing ? (
                   <div className="flex flex-col">
-                    <label className="text-lg font-semibold text-gray-900 mb-1">
+                    <label className="text-sm font-bold text-gray-900 mb-1">
                       Brand Name
                     </label>
                     <Input
@@ -1044,19 +1087,19 @@ const ProductionTab = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-sm font-bold text-gray-900">
                     Brand Name :
                     </h3>
-                    <span className="text-lg">{selectedManufacturingOrder.brand_name}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.brand_name}</span>
                   </div>
                 )}
               </div>
 
               {/* Dates */}
-              {/* <div className="my-4 grid grid-cols-3 gap-4">
+              <div className="my-4 grid grid-cols-3 gap-4">
               {isEditing ? (
                   <div className="flex flex-col">
-                    <Label className="pb-1">Expected Delivery Date</Label>
+                    <Label className="pb-1 text-sm font-bold text-gray-900">Expected Delivery Date</Label>
                       <Input
                         type="date"
                         value={selectedManufacturingOrder.expected_delivery_date}
@@ -1065,15 +1108,15 @@ const ProductionTab = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <p className="font-base font-semibold text-gray-900">
+                    <p className="text-sm font-bold text-gray-900">
                     Expected Delivery Date :
                     </p>
-                    <span className="text-lg">{selectedManufacturingOrder.expected_delivery_date || "N.A"}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.expected_delivery_date || "N.A"}</span>
                   </div>
                 )}
                 {isEditing ? (
                   <div className="flex flex-col">
-                    <Label className="pb-1">Manufacturing Date</Label>
+                    <Label className="text-sm font-bold text-gray-900 pb-1">Manufacturing Date</Label>
                       <Input
                         type="date"
                         value={selectedManufacturingOrder.manufacturing_date}
@@ -1082,16 +1125,16 @@ const ProductionTab = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <p className="font-base font-semibold text-gray-900">
+                    <p className="text-sm font-bold text-gray-900 ">
                     Manufacturing Date :
                     </p>
-                    <span className="text-lg">{selectedManufacturingOrder.manufacturing_date || "N.A"}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.manufacturing_date || "N.A"}</span>
                   </div>
                 )}
 
                 {isEditing ? (
                   <div className="flex flex-col">
-                    <Label className="pb-1">Expiry Date</Label>
+                    <Label className="pb-1 text-sm font-bold text-gray-900">Expiry Date</Label>
                       <Input
                         type="date"
                         value={selectedManufacturingOrder.expiry_date}
@@ -1100,28 +1143,29 @@ const ProductionTab = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <p className="font-base font-semibold text-gray-900">
+                    <p className="text-sm font-bold text-gray-900">
                     Expiry Date :
                     </p>
-                    <span className="text-lg">{selectedManufacturingOrder.expiry_date || "N.A"}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.expiry_date || "N.A"}</span>
                   </div>
                 )}
-              </div> */}
+              </div>
 
               {/* Batch Number */}
               {isEditing?(
                 <div className="my-4">
-                  <Label className="pb-1">Batch Number</Label>
+                  <Label className="pb-1 text-sm font-bold text-gray-900">Batch Number</Label>
                   <Input
                     value={editForm.batch_number ?? ""}
                     onChange={e => setEditForm({ ...editForm, batch_number: e.target.value })}
                     placeholder="Unassigned"
+                    
                   />
                   {!editForm.batch_number && (
                     <Button
-                      className="mt-2 "
-                      onClick={() => {
-                        const batch = generateBatchNumber(editForm.category ?? "Human");
+                      className="mt-2 text-bold"
+                      onClick={async () => {
+                        const batch = await assignBatchNumber(editForm.order_id, editForm.category ?? "Human");
                         setEditForm({ ...editForm, batch_number: batch });
                       }}
                     >
@@ -1131,10 +1175,10 @@ const ProductionTab = () => {
                 </div>
                 ):(
                   <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
-                    <p className="font-base font-semibold text-gray-900 ">
+                    <p className="text-sm font-bold text-gray-900 ">
                     Batch Number :
                     </p>
-                    <span className="text-lg">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
                   </div>
                 )}
                
@@ -1156,9 +1200,9 @@ const ProductionTab = () => {
                           order_quantity: editForm.order_quantity,
                           brand_name: editForm.brand_name,
                           company_name: editForm.company_name,
-                          // expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
-                          // manufacturing_date: selectedManufacturingOrder.manufacturing_date,
-                          // expiry_date: selectedManufacturingOrder.expiry_date,
+                          expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
+                          manufacturing_date: selectedManufacturingOrder.manufacturing_date,
+                          expiry_date: selectedManufacturingOrder.expiry_date,
                           batch_number: editForm.batch_number, // ✅ FIXED (was selectedManufacturingOrder.batch_number)
                           status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
                           ? "InQueue"
@@ -1241,6 +1285,7 @@ const ProductionTab = () => {
                       onClick={() => {
                         setIsEditing(false);
                         setEditForm({
+                          order_id: selectedManufacturingOrder.order_id,
                           product_name: selectedManufacturingOrder.product_name,
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
@@ -1248,7 +1293,8 @@ const ProductionTab = () => {
                           company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...selectedManufacturingOrder.packing_groups],
                           status: selectedManufacturingOrder.status,
-                          batch_number: selectedManufacturingOrder.batch_number
+                          batch_number: selectedManufacturingOrder.batch_number,
+                          
                         });
                       }}
                     >
@@ -1262,6 +1308,7 @@ const ProductionTab = () => {
                       variant="outline"
                       onClick={() => {
                         setEditForm({
+                          order_id: selectedManufacturingOrder.order_id,
                           product_name: selectedManufacturingOrder.product_name,
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
@@ -1269,7 +1316,8 @@ const ProductionTab = () => {
                           company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...(selectedManufacturingOrder.packing_groups || [])],
                           status: selectedManufacturingOrder.status,
-                          batch_number: selectedManufacturingOrder.batch_number
+                          batch_number: selectedManufacturingOrder.batch_number,
+                          
                         });
                         setIsEditing(true);
                       }}
@@ -1308,7 +1356,7 @@ const ProductionTab = () => {
                         }
 
                         // 3️⃣ Update local state
-                        setManufacturingOrders(products.filter(p => p.order_id !== selectedManufacturingOrder.order_id));
+                        setManufacturingOrders(prevOrders => prevOrders.filter(p => p.order_id !== selectedManufacturingOrder.order_id));
                         setShowManufacturingOrderDetails(false);
 
                         toast({ title: "Deleted", description: "ManufacturingOrder deleted successfully." });
