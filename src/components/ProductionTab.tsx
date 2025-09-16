@@ -177,14 +177,15 @@ const ProductionTab = () => {
     switch (status) {
       case "InQueue": return "bg-pink-100 text-pink-800";
       case "Unassigned": return "bg-red-100 text-red-800";
-      case "Under Production": return "bg-yellow-100 text-yellow-800";
-      case "Filling": return "bg-blue-100 text-blue-800";
-      case "Labelling": return "bg-purple-100 text-purple-800";
-      case "Packing": return "bg-orange-100 text-orange-800";
-      case "Ready to Dispatch": return "bg-green-100 text-green-800";
-      case "Dispatched": return "bg-cyan-100 text-cyan-800"
+      case "Under Production": return "bg-orange-100 text-orange-500";
+      case "Filling": return "bg-yellow-100 text-yellow-800";
+      case "Labelling": return "bg-sky-100 text-sky-800";
+      case "Packing": return "bg-indigo-100 text-indigo-800";
+      case "Ready to Dispatch": return "bg-teal-100 text-teal-800";
+      case "Dispatched": return "bg-green-100 text-green-800"
       default: return "bg-gray-100 text-gray-800";
     }
+   
   };
 
   // Add a packing group (packing size + bottles)

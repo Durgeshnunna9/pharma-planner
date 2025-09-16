@@ -49,9 +49,9 @@ const Index = () => {
         </header>
 
         {/* Tab Navigation - Dynamic positioning */}
-        <div className={`flex flex-col items-center mb-8 ${activeTab ? 'fixed top-0 left-0 right-0 z-50 bg-white shadow-lg py-4' : ''}`}>
+        <div className={`flex flex-col items-center mb-8 ${activeTab ? 'top-0 left-0 right-0 z-50 bg-white shadow-lg rounded-xl py-4' : ''}`}>
           {/* Tabs */}
-          <div className={`grid grid-cols-5 gap-6 bg-white rounded-2xl p-6 shadow-lg ${activeTab ? 'container mx-auto' : ''}`}>
+          <div className={`grid grid-cols-5 gap-6 bg-white  p-6  ${activeTab ? 'container mx-auto' : ''}`}>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -89,7 +89,7 @@ const Index = () => {
         
         {/* Active Tab Content */}
         {ActiveComponent && (
-          <div className={`bg-white rounded-2xl shadow-lg p-8 ${activeTab ? 'mt-60' : ''}`}>
+          <div className={`bg-white rounded-2xl shadow-lg p-8 `}>
             <ActiveComponent />
           </div>
         )}

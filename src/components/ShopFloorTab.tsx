@@ -253,19 +253,19 @@ const ShopFloorTab = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "InQueue": 
-        return "bg-red-600 text-white"; // Deep red (critical, starting point)
+        return "bg-pink-500 text-white"; // Deep red (critical, starting point)
       case "Under Production": 
         return "bg-orange-500 text-white"; // Orange (work in progress)
       case "Filling": 
-        return "bg-amber-400 text-white"; // Warm yellow-orange
+        return "bg-yellow-500 text-white"; // Warm yellow-orange
       case "Labelling": 
-        return "bg-yellow-400 text-black"; // Bright yellow
+        return "bg-sky-400 text-white"; // Bright yellow
       case "Packing": 
-        return "bg-sky-500 text-white"; // Sky blue
+        return "bg-indigo-400 text-white"; // Sky blue
       case "Ready to Dispatch": 
-        return "bg-indigo-500 text-white"; // Indigo (almost done)
+        return "bg-teal-500 text-white"; // Indigo (almost done)
       case "Dispatched": 
-        return "bg-green-600 text-white"; // Success green (final stage)
+        return "bg-green-700 text-white"; // Success green (final stage)
       default: 
         return "bg-gray-500 text-white";
     }
@@ -273,13 +273,13 @@ const ShopFloorTab = () => {
 
   const getStatusBorderColor = (status: string) => {
     switch (status) {
-      case "InQueue": return "border-red-600"
+      case "InQueue": return "border-pink-600"
       case "Under Production": return "border-orange-500";
-      case "Filling": return "border-amber-400";
-      case "Labelling": return "border-yellow-400";
-      case "Packing": return "border-sky-500";
-      case "Ready to Dispatch": return "border-indigo-500";
-      case "Dispatched": return "border-green-600";
+      case "Filling": return "border-yellow-500";
+      case "Labelling": return "border-sky-400";
+      case "Packing": return "border-indigo-400";
+      case "Ready to Dispatch": return "border-teal-500";
+      case "Dispatched": return "border-green-700";
       default: return "border-gray-400";
     }
   };
@@ -296,6 +296,8 @@ const ShopFloorTab = () => {
       default: return 0;
     }
   };
+
+  const STATUS_COLORS: Record<string, string> = { Unassigned: "bg-red-400 hover:bg-red-500", InQueue: "bg-pink-500 hover:bg-pink-600", "Under Production": "bg-orange-500 hover:bg-orange-600", Filling: "bg-yellow-500 hover:bg-yellow-600", Labelling: "bg-sky-500 hover:bg-sky-600", Packing: "bg-indigo-500 hover:bg-indigo-600", "Ready to Dispatch": "bg-teal-500 hover:bg-teal-600", Dispatched: "bg-green-500 hover:bg-green-600", };
 
   const getStatusCount = (status: string) => {
     return shopFloorOrders.filter(order => order.status === status).length;
@@ -647,8 +649,8 @@ const ShopFloorTab = () => {
                           {prevStatus ? (
                             <Button
                             disabled={!prevStatus}
-                            onClick={() => prevStatus && updateOrderStatus(order.order_id, prevStatus)}
-                            className="h-6 px-2 text-[11px] leading-none bg-slate-600 "
+                            onClick={() => updateOrderStatus(order.order_id, prevStatus)}
+                            className={`h-6 px-2 text-[11px] leading-none bg-slate-600 mr-2 ${STATUS_COLORS[prevStatus]}`}
                             >
                               <ChevronLeft className="w-3 h-3" />
                               {`Move back to ${prevStatus}`}
@@ -658,8 +660,8 @@ const ShopFloorTab = () => {
                           {nextStatus ? (
                             <Button
                               disabled={!nextStatus}
-                              onClick={() => nextStatus && updateOrderStatus(order.order_id, nextStatus)}
-                              className="h-6 px-2 text-[11px] leading-none bg-slate-600 "
+                              onClick={() => updateOrderStatus(order.order_id, nextStatus)}
+                              className={`h-6 px-2 text-[11px] leading-none bg-slate-600 ml-2 ${STATUS_COLORS[nextStatus]}`}
                             >
                               {nextStatus ? `Move to ${nextStatus}` : ""}
                               <ChevronRight className="w-3 h-3" />
