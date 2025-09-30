@@ -57,6 +57,29 @@ const CustomersTab = () => {
     // billing_address: '',
     // shipping_address: '',
   });
+  const [userRole, setRole] = useState<'admin' | 'user' | null>(null);
+
+useEffect(() => {
+  const fetchRole = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      // look up profile row for this user
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setRole(profile?.role || "user");
+    }
+  };
+
+  fetchRole();
+}, []);
+
   useEffect(() => {
     const loadCustomers = async () => {
       const { data, error } = await supabase
@@ -307,7 +330,8 @@ const CustomersTab = () => {
           </Button> */}
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
+            className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+            disabled={userRole !== 'admin'}
           >
             <Plus className="w-4 h-4" />
             Add Customer
@@ -508,7 +532,7 @@ const CustomersTab = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-2 ">
                 {/* Customer Header */}
-                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                <h2 className="text-xl font-bold text-gray-900 mb-2 mr-4">
                   {isEditing ? (
                     <div>
                       <p className="text-sm pb-1">Company Name:</p>
@@ -547,7 +571,7 @@ const CustomersTab = () => {
                           <Input
                             value={editForm.customer_code}
                             onChange={e => setEditForm({ ...editForm, customer_code: e.target.value })}
-                            className="w-32 h-auto inline-block p-1"
+                            className="w-40 inline-block h-auto p-1"
                           />
                         ) : (
                           selectedCustomer.customer_code
@@ -577,27 +601,27 @@ const CustomersTab = () => {
                 {/* License Numbers & Addresses */}
                 <div className="gap-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">License Information</h3>
+                    <p className="text-base font-bold text-gray-900 mb-2">License Information</p>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600 ">20B DL No:</span>
+                        <span className="text-gray-800 ">20B DL No:</span>
                         {isEditing ? (
                           <Input
                             value={editForm.dl20b_number}
                             onChange={e => setEditForm({ ...editForm, dl20b_number: e.target.value })}
-                            className="w-32 inline-block h-auto"
+                            className="w-40 inline-block h-auto"
                           />
                         ) : (
                           <span className="font-medium">{selectedCustomer.dl20b_number || "N/A"}</span>
                         )}
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">201B DL No:</span>
+                        <span className="text-gray-800">201B DL No:</span>
                         {isEditing ? (
                           <Input
                             value={editForm.dl21b_number}
                             onChange={e => setEditForm({ ...editForm, dl21b_number: e.target.value })}
-                            className="w-32 inline-block h-auto"
+                            className="w-40 inline-block h-auto"
                           />
                         ) : (
                           <span className="font-medium">{selectedCustomer.dl21b_number || "N/A"}</span>
@@ -639,9 +663,9 @@ const CustomersTab = () => {
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
                 {isEditing ? (
-                  <div>
+                  <div >
                     <Button
-                      className="bg-green-500 hover:bg-green-600 mr-2"
+                      className="bg-green-500 hover:bg-green-600"
                       onClick= {async () => {
                         const { error: customerError } = await supabase
                           .from("customer")
@@ -690,6 +714,8 @@ const CustomersTab = () => {
                   <>
                     <Button
                       variant="outline"
+                      className={`flex items-center gap-2 ${userRole === 'admin' ? '' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={userRole !== 'admin'}
                       onClick={() => {
                         setEditForm({
                           customer_code: selectedCustomer.customer_code,
@@ -708,7 +734,8 @@ const CustomersTab = () => {
                     </Button>
                     {/* DELETE BUTTON */}
                     <Button
-                      className="bg-red-500 hover:bg-red-600"
+                      className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={userRole !== 'admin'}
                       onClick={async () => {
                         if (!confirm("Are you sure you want to delete this customer?")) return;
 

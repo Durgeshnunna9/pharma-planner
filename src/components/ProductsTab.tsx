@@ -101,7 +101,27 @@ const ProductsTab = () => {
     uqc: 'BTL' as 'BTL' | 'PCS',
 
   });
+  const [userRole ,setRole] = useState("");
+  useEffect(() => {
+    const fetchRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
   
+      if (user) {
+        // look up profile row for this user
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+  
+        setRole(profile?.role || "user");
+      }
+    };
+  
+    fetchRole();
+  }, []);
   useEffect(() => {
     const loadProducts = async () => {
       const { data, error } = await supabase
@@ -376,8 +396,9 @@ const ProductsTab = () => {
             Import Excel
           </Button> */}
           <Button
+            className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+            disabled={userRole !== 'admin'}
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
           >
             <Plus className="w-4 h-4" />
             Add Product
@@ -939,6 +960,8 @@ const ProductsTab = () => {
                   <>
                     {/* EDIT BUTTON */}
                     <Button
+                      className={`flex items-center gap-2 ${userRole === 'admin' ? '' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={userRole !== 'admin'}
                       variant="outline"
                       onClick={() => {
                         setEditForm({
@@ -960,7 +983,9 @@ const ProductsTab = () => {
 
                     {/* DELETE BUTTON */}
                     <Button
-                      className="bg-red-500 hover:bg-red-600"
+                      className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={userRole !== 'admin'}
+                      // className="bg-red-500 hover:bg-red-600"
                       onClick={async () => {
                         if (!confirm("Are you sure you want to delete this product?")) return;
 
