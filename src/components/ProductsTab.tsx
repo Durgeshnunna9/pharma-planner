@@ -101,7 +101,7 @@ const ProductsTab = () => {
     uqc: 'BTL' as 'BTL' | 'PCS',
 
   });
-  const [userRole ,setRole] = useState("");
+  const [userRole ,setRole] = useState<'admin' | 'user' | 'manager' | 'production' | null>(null);
   useEffect(() => {
     const fetchRole = async () => {
       const {
@@ -396,8 +396,8 @@ const ProductsTab = () => {
             Import Excel
           </Button> */}
           <Button
-            className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
-            disabled={userRole !== 'admin'}
+            className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+            disabled={['admin', 'manager'].includes(userRole)}
             onClick={() => setShowAddForm(!showAddForm)}
           >
             <Plus className="w-4 h-4" />
@@ -960,8 +960,8 @@ const ProductsTab = () => {
                   <>
                     {/* EDIT BUTTON */}
                     <Button
-                      className={`flex items-center gap-2 ${userRole === 'admin' ? '' : 'bg-gray-300 cursor-not-allowed'}`}
-                      disabled={userRole !== 'admin'}
+                      className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? '' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={!['admin', 'manager'].includes(userRole)}
                       variant="outline"
                       onClick={() => {
                         setEditForm({
@@ -983,8 +983,8 @@ const ProductsTab = () => {
 
                     {/* DELETE BUTTON */}
                     <Button
-                      className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed'}`}
-                      disabled={userRole !== 'admin'}
+                      className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={!['admin', 'manager'].includes(userRole)}
                       // className="bg-red-500 hover:bg-red-600"
                       onClick={async () => {
                         if (!confirm("Are you sure you want to delete this product?")) return;

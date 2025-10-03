@@ -66,11 +66,11 @@ const Index = () => {
 
   // ✅ Tabs with role restrictions
   const tabs = [
-    { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab, roles: ["user", "admin"] },
-    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["user", "admin"] },
-    { id: "customers", label: "Customers", icon: Smile, component: CustomersTab, roles: ["user", "admin"] },
-    { id: "production", label: "Production", icon: Factory, component: ProductionTab, roles: ["admin"] },
-    { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin"] },
+    { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab, roles: ["user", "admin", "manager"] },
+    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["user", "admin" ,"manager"] },
+    { id: "customers", label: "Customers", icon: Smile, component: CustomersTab, roles: ["user", "admin", "manager"] },
+    { id: "production", label: "Production", icon: Factory, component: ProductionTab, roles: ["admin","manager"] },
+    { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin","production", "manager"] },
   ];
 
   const visibleTabs = tabs.filter((tab) => tab.roles.includes(profile?.role));
@@ -78,7 +78,7 @@ const Index = () => {
   
 
   // ✅ Grid columns depend on role
-  const gridCols = profile?.role === "admin" ? "grid-cols-5" : "grid-cols-3";
+  const gridCols = ['admin', 'manager'].includes(profile?.role) ? "grid-cols-5" : profile?.role === "production" ? "grid-cols-1" : "grid-cols-3"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-white">

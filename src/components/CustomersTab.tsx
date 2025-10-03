@@ -57,7 +57,7 @@ const CustomersTab = () => {
     // billing_address: '',
     // shipping_address: '',
   });
-  const [userRole, setRole] = useState<'admin' | 'user' | null>(null);
+  const [userRole, setRole] = useState<'admin' | 'user' | 'manager' | 'production' | null>(null);
 
 useEffect(() => {
   const fetchRole = async () => {
@@ -330,8 +330,8 @@ useEffect(() => {
           </Button> */}
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
-            className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
-            disabled={userRole !== 'admin'}
+            className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+            disabled={!['admin', 'manager'].includes(userRole)}
           >
             <Plus className="w-4 h-4" />
             Add Customer
@@ -714,8 +714,8 @@ useEffect(() => {
                   <>
                     <Button
                       variant="outline"
-                      className={`flex items-center gap-2 ${userRole === 'admin' ? '' : 'bg-gray-300 cursor-not-allowed'}`}
-                      disabled={userRole !== 'admin'}
+                      className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? '' : 'bg-gray-300 cursor-not-allowed'}`}
+                      disabled={!['admin', 'manager'].includes(userRole)}
                       onClick={() => {
                         setEditForm({
                           customer_code: selectedCustomer.customer_code,
@@ -734,8 +734,8 @@ useEffect(() => {
                     </Button>
                     {/* DELETE BUTTON */}
                     <Button
-                      className={`flex items-center gap-2 ${userRole === 'admin' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed'}`}
-                      disabled={userRole !== 'admin'}
+                      className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-300 cursor-not-allowed' }`}
+                      disabled={!['admin', 'manager'].includes(userRole)}
                       onClick={async () => {
                         if (!confirm("Are you sure you want to delete this customer?")) return;
 
