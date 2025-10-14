@@ -24,6 +24,7 @@ interface ManufacturingOrder {
   order_quantity: number;
   category: "Human" | "Veterinary";
   brand_name: string;
+  product_description: string;
   company_name?: string | null;
   batch_number: string | null; // null if unassigned
   expected_delivery_date: string;
@@ -46,6 +47,7 @@ const ProductionTab = () => {
     product_name: "",
     brand_name: "",
     company_name: "",
+    product_description: "",
     order_quantity: 0,
     packing_groups: [{ packing_size: "", no_of_bottles: 0 }], // start with one group
     expected_delivery_date: "",
@@ -73,9 +75,6 @@ const ProductionTab = () => {
   //   return (size * count) / 1000; // convert ml → L
   // };
 
-  
-
-
   // Fetch products and customers
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -84,6 +83,7 @@ const ProductionTab = () => {
   const [editForm, setEditForm] = useState({
     order_id:'',
     product_name: '',
+    product_description: '',
     order_quantity: 0,
     category: 'Human' as 'Human' | 'Veterinary',
     brand_name: '',
@@ -223,8 +223,10 @@ const ProductionTab = () => {
   };
 
   // Get the current calculated total
-  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups);
+  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups );
   const currentEditTotalLiters = calculateTotalLiters(editForm.packing_groups);
+
+  
 
   // Update order quantity whenever packing groups change
   useEffect(() => {
@@ -287,6 +289,7 @@ const ProductionTab = () => {
         product_id: newManufacturingOrder.product_id,
         customer_id: newManufacturingOrder.customer_id,
         product_name: newManufacturingOrder.product_name,
+        product_description : newManufacturingOrder.product_description,
         order_quantity: currentTotalLiters,
         category: newManufacturingOrder.category,
         brand_name: newManufacturingOrder.brand_name,
@@ -335,6 +338,7 @@ const ProductionTab = () => {
       product_id: "",
       customer_id: "",
       product_name: "",
+      product_description: "",
       order_quantity: 0,
       category: "Human",
       brand_name: "",
@@ -518,7 +522,7 @@ const ProductionTab = () => {
                       setShowProductDropdown(true);
                     }}
                     onFocus={() => { if (productSearch.length > 0) setShowProductDropdown(true); }}
-                    autoComplete="off"
+                    autoComplete="disable-autofill"
                     placeholder="Enter your Product Details"
                     className="pl-8 "
                   />
@@ -529,7 +533,7 @@ const ProductionTab = () => {
                           className="p-2 hover:bg-gray-100 cursor-pointer"
                           key={p.external_id}
                           onClick={() => {
-                            setNewManufacturingOrder({ ...newManufacturingOrder, product_id: p.external_id, product_name: p.product_name });
+                            setNewManufacturingOrder({ ...newManufacturingOrder, product_id: p.external_id, product_name: p.product_name, product_description: p.sales_description });
                             setProductSearch(p.product_name);
                             setShowProductDropdown(false);
                           }}
@@ -555,7 +559,7 @@ const ProductionTab = () => {
                     }}
                     placeholder="Enter your Company Details"
                     onFocus={() => { if (customerSearch.length > 0) setShowCustomerDropdown(true); }}
-                    autoComplete="off"
+                    autoComplete="disable-autofill"
                     className="pl-8"
                   />
                   {showCustomerDropdown && customerSearch && (
@@ -693,10 +697,53 @@ const ProductionTab = () => {
             </div> */}
 
             <div className="flex gap-3">
-              <Button onClick={() => {handleAddManufacturingOrder()}} className="bg-green-500 hover:bg-green-600">
+              <Button onClick={() => 
+                {handleAddManufacturingOrder(); setNewManufacturingOrder({
+                  product_id: "",
+                  customer_id: "",
+                  product_name: "",
+                  product_description: "",
+                  order_quantity: 0,
+                  packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
+                  expected_delivery_date: "",
+                  category: "Human",
+                  manufacturing_date: "",
+                  expiry_date: "",
+                  batch_number: "",
+                  status: "Unassigned",
+                  brand_name: "",
+                  company_name: ""
+                });
+                setProductSearch("");       // ✅ clear input text
+                setCustomerSearch(""); }} 
+                className="bg-green-500 hover:bg-green-600" 
+              >
                 Create Order
               </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewManufacturingOrder({
+                    product_id: "",
+                    customer_id: "",
+                    product_name: "",
+                    product_description: "",
+                    order_quantity: 0,
+                    packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
+                    expected_delivery_date: "",
+                    category: "Human",
+                    manufacturing_date: "",
+                    expiry_date: "",
+                    batch_number: "",
+                    status: "Unassigned",
+                    brand_name: "",
+                    company_name: ""
+                  });
+                  setProductSearch("");       // ✅ clear input text
+                  setCustomerSearch("");      // ✅ clear customer input
+                }}
+              >
                 Cancel
               </Button>
             </div>
@@ -729,7 +776,6 @@ const ProductionTab = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              
               <SelectItem value="All">Assigned</SelectItem>
               <SelectItem value="Unassigned">Unassigned</SelectItem>
             </SelectContent>
@@ -835,6 +881,7 @@ const ProductionTab = () => {
             setEditForm({
               order_id:selectedManufacturingOrder.order_id,
               product_name: selectedManufacturingOrder.product_name,
+              product_description: selectedManufacturingOrder.product_description,
               category: selectedManufacturingOrder.category,
               order_quantity: selectedManufacturingOrder.order_quantity,
               brand_name: selectedManufacturingOrder.brand_name,
@@ -856,6 +903,7 @@ const ProductionTab = () => {
             <div className="space-y-6">
               {/* ManufacturingOrder Header */}
               <div className="border-b pb-4">
+                {/* Product Name*/}
                 <div>
                   <p className="text-xl text-gray-900 mb-2">
                     {isEditing ? (
@@ -885,6 +933,7 @@ const ProductionTab = () => {
                                   setEditForm({
                                     ...editForm,
                                     product_name: p.product_name,
+                                    product_description: p.sales_description,
                                   });
                                   setShowProductDropdown(false);
                                 }}
@@ -902,6 +951,15 @@ const ProductionTab = () => {
                         <p className="text-sm font-bold text-gray-900 ">Product:  <span className="text-sm font-semibold">{selectedManufacturingOrder.product_name}</span> </p>
                       </div>
                     )}
+                  </p>
+                </div>
+
+                {/* Product Description*/}
+                <div>
+                  <p className="text-xl text-gray-900 mb-2">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 ">Product Desc:  <span className="text-sm font-semibold">{selectedManufacturingOrder.product_description}</span> </p>
+                    </div>
                   </p>
                 </div>
 
@@ -1164,7 +1222,7 @@ const ProductionTab = () => {
                   />
                   {!editForm.batch_number && (
                     <Button
-                      className="mt-2 text-bold"
+                      className="mt-2 text-bold bg-cyan-500 text-white hover:bg-cyan-700 hover:text-black"
                       onClick={async () => {
                         const batch = await assignBatchNumber(editForm.order_id, editForm.category ?? "Human");
                         setEditForm({ ...editForm, batch_number: batch });
@@ -1288,6 +1346,7 @@ const ProductionTab = () => {
                         setEditForm({
                           order_id: selectedManufacturingOrder.order_id,
                           product_name: selectedManufacturingOrder.product_name,
+                          product_description: selectedManufacturingOrder.product_description,
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
                           brand_name:selectedManufacturingOrder.brand_name,
@@ -1311,6 +1370,7 @@ const ProductionTab = () => {
                         setEditForm({
                           order_id: selectedManufacturingOrder.order_id,
                           product_name: selectedManufacturingOrder.product_name,
+                          product_description: selectedManufacturingOrder.product_description,
                           category: selectedManufacturingOrder.category,
                           order_quantity:selectedManufacturingOrder.order_quantity,
                           brand_name:selectedManufacturingOrder.brand_name,

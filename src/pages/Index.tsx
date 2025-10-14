@@ -89,8 +89,8 @@ const Index = () => {
 
           {profile && (
             <div className="flex items-center space-x-4">
-              <span className="text-gray-700 font-medium">
-                {profile.full_name} ({profile.role})
+              <span className="text-gray-700 text-xl font-bold">
+                {profile.full_name} 
               </span>
               <Button
                 onClick={handleLogout}
@@ -98,7 +98,7 @@ const Index = () => {
                 className="flex items-center space-x-2 text-red-500 hover:text-red-700"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
+                <span className="text-md font-bold ">Sign Out</span>
               </Button>
             </div>
           )}
