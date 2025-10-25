@@ -23,10 +23,11 @@ interface PackingGroup {
 interface ShopFloorOrder {
   order_id: string;
   product_name: string;
+  product_description: string;
   brand_name: string;
   company_name: string;
   batch_number: string;
-  status: "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
+  status: "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch"| "Dispatched" ;
   expected_delivery_date: string;
   manufacturing_date: string;
   expiry_date: string;
@@ -125,7 +126,9 @@ const ShopFloorTab = () => {
   
     // ✅ Apply multiple status filter (with "All" special handling)
     if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
-      filtered = filtered.filter((order) => statusFilter.includes(order.status));
+      filtered = filtered.filter(order => 
+        (statusFilter.includes("All") ? order.status !== "Dispatched" : statusFilter.includes(order.status))
+      );
     }
   
     // ✅ Apply Human/Vet filter
@@ -552,8 +555,10 @@ const ShopFloorTab = () => {
                         <Package2 className={`w-5 h-5 ${order.category === "Human" ? "text-blue-600" : "text-green-600"}`} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-xs pr-2 leading-tight">{order.product_name}</h3>
-                        <p className="text-xs text-gray-600">{order.brand_name}</p>
+                        <h3 className="text-gray-900 text-xs pr-2 leading-tight"><span className="font-bold">Product:</span> {order.product_name}</h3>
+                        <p className="text-xs text-gray-800 pt-1 pb-1"><span className="font-bold">Description:</span> {order.product_description}</p>
+                        <p className="text-xs text-gray-700"><span className="font-bold">Brand Name:</span> {order.brand_name}</p>
+                        
                         <Badge variant="outline" className="text-xs mt-1">
                           {order.category}
                         </Badge>
@@ -570,11 +575,11 @@ const ShopFloorTab = () => {
                       <Building2 className="w-5 h-4 text-gray-500" />
                       <span className="font-medium text-gray-700">{order.company_name}</span>
                     </div>
-                    <div className="bg-gray-50 p-2 rounded">
+                    <div className="bg-gray-50 p-2 rounded-sm">
                       <p className="text-gray-600"><span className="font-medium text-gray-700">Order Quantity : </span> {order.order_quantity}L </p>
                     </div>
                     {/*Packing group detials*/}
-                    <p>Packing Details:</p>
+                    <p className="text-md font-semibold">Packing Details:</p>
                     {order.packing_groups.length > 0 ? (
                       <div className="border-2 p-0.5">
                         {order.packing_groups.length > 0 && (
@@ -604,7 +609,7 @@ const ShopFloorTab = () => {
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className={`text-gray-600 ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-500 text-xs"}`}> <span className="text-xs font-semibold text-black">Expected Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
+                      <span className={`text-gray-600 ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-500 text-xs"}`}> <span className="text-sm font-semibold text-black">Expected Delivery Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3 text-gray-500" />
@@ -680,19 +685,22 @@ const ShopFloorTab = () => {
                     </div>
                     
                     {order.notes.length > 0 && (
-                      <div className="max-h-20 overflow-y-auto space-y-1">
+                      <div className="max-h-20 overflow-y-auto space-y-2">
                         {order.notes.map((note) => (
                           <div
                             key={note.note_id}
-                            className="flex items-start justify-between bg-gray-50 p-2 rounded text-xs"
+                            className="bg-blue-50 p-3 rounded-md border border-blue-200 flex gap-3"
                           >
-                            <p className="text-gray-600">{note.content}</p>
-                            <button
-                              onClick={() => handleDeleteNote(note.note_id, order.order_id)}
-                              className="ml-2 text-red-500 hover:text-red-700 text-[10px] font-medium"
-                            >
-                              ✕
-                            </button>
+                            <span className="text-blue-600 text-lg flex-shrink-0">ℹ️</span>
+                            <div className="flex-1 flex items-start justify-between">
+                              <p className="text-gray-800 text-xs leading-relaxed">{note.content}</p>
+                              <button
+                                onClick={() => handleDeleteNote(note.note_id, order.order_id)}
+                                className="ml-2 text-red-500 hover:text-red-700 text-sm font-medium flex-shrink-0"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

@@ -60,7 +60,7 @@ const ProductionTab = () => {
     
   });
   const [filterCategory, setFilterCategory] = useState<"All" | "Human" | "Veterinary">("All");
-  const [assignmentFilter, setAssignmentFilter] = useState<"All" | "Assigned" | "Unassigned">("All");
+  const [assignmentFilter, setAssignmentFilter] = useState<"All" | "Assigned" | "Unassigned">("Unassigned");
   // For product and customer search
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -479,11 +479,14 @@ const ProductionTab = () => {
   // const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
 
   const filteredOrdersByAssignment = sortedOrders.filter(order => {
+    const batch = order.batch_number?.toString().trim().toLowerCase();
+    
+
     if (assignmentFilter === "Assigned") {
-      return order.batch_number && order.batch_number !== "Unassigned";
+      return batch && batch != "Unassigned";
     }
     if (assignmentFilter === "Unassigned") {
-      return !order.batch_number || order.batch_number === "Unassigned";
+      return !batch || batch === "Unassigned";
     }
     return true; // "all"
   });
@@ -776,8 +779,9 @@ const ProductionTab = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All">Assigned</SelectItem>
+              <SelectItem value="All">All</SelectItem>
               <SelectItem value="Unassigned">Unassigned</SelectItem>
+              <SelectItem value="Assigned">Assigned</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -813,11 +817,6 @@ const ProductionTab = () => {
         </button>
       </div> */}
 
-      
-
-      
-
-
       {/* Orders List */}
       <div className="grid gap-4 ">
         {filteredOrdersByAssignment.length === 0 ? (
@@ -842,7 +841,7 @@ const ProductionTab = () => {
                       Brand: {manufacturingOrder.brand_name} | Company: {manufacturingOrder.company_name}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
-                      <span className="px-2 py-1 bg-violet-100 text-gray-700 rounded text-xs">
+                      <span className="px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
                         Batch: {manufacturingOrder.batch_number ?? "Unassigned"}
                       </span>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -855,13 +854,26 @@ const ProductionTab = () => {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(manufacturingOrder.status)}`}>
                         {manufacturingOrder.status}
                       </span>
+                      <span>
+                      <p className="text-right text-xs text-cyan-800 space-y-1 bg-cyan-100 rounded-full px-2 py-1" ><span className="">Delivery Date:</span> {manufacturingOrder.expected_delivery_date || "N.A"}</p>
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right text-sm text-gray-500 space-y-1">
-                    <p>Quantity: {manufacturingOrder.order_quantity || "0"}L</p>
-                    <p>Delivery: {manufacturingOrder.expected_delivery_date || "N.A"} </p>
-                    <p>Manufacturing: {manufacturingOrder.manufacturing_date || "N.A"}</p>
-                    <p>Expiry: {manufacturingOrder.expiry_date || "N.A"}</p>
+                  <div key={manufacturingOrder.order_id} className="text-right text-sm text-gray-500 space-y-1 text-center">
+                    <p className="bg-green-100 text-green-900 rounded-full px-2 py-1">
+                      Quantity: {manufacturingOrder.order_quantity || "0"}L
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {Array.isArray(manufacturingOrder.packing_groups) &&
+                        manufacturingOrder.packing_groups.map((group, index) => (
+                          <span
+                            key={index}
+                            className="py-1 bg-green-100 text-green-700 rounded-full text-xs text-center"
+                          >
+                            {group.packing_size || "N/A"} : {group.no_of_bottles || 0}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -987,7 +999,7 @@ const ProductionTab = () => {
                           <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-40 overflow-y-auto">
                             {filteredCustomers.map((c) => (
                               <li
-                                key={c.customer_id}
+                                key={c.customer_code}
                                 className="p-2 hover:bg-gray-100 cursor-pointer"
                                 onClick={() => {
                                   setEditForm({
@@ -997,7 +1009,7 @@ const ProductionTab = () => {
                                   setShowCustomerDropdown(false);
                                 }}
                               >
-                                <span className="text-sm text-black-500 mr-2">[{c.customer_id}]</span>
+                                <span className="text-sm text-black-500 mr-2">[{c.customer_code}]</span>
                                 <span className="text-sm">{c.company_name}</span>
                               </li>
                             ))}
@@ -1218,6 +1230,7 @@ const ProductionTab = () => {
                     value={editForm.batch_number ?? ""}
                     onChange={e => setEditForm({ ...editForm, batch_number: e.target.value })}
                     placeholder="Unassigned"
+                    readOnly
                     
                   />
                   {!editForm.batch_number && (
