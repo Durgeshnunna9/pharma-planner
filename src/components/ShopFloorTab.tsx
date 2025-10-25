@@ -578,30 +578,60 @@ const ShopFloorTab = () => {
                     <div className="bg-gray-50 p-2 rounded-sm">
                       <p className="text-gray-600"><span className="font-medium text-gray-700">Order Quantity : </span> {order.order_quantity}L </p>
                     </div>
-                    {/*Packing group detials*/}
-                    <p className="text-md font-semibold">Packing Details:</p>
-                    {order.packing_groups.length > 0 ? (
-                      <div className="border-2 p-0.5">
-                        {order.packing_groups.length > 0 && (
-                          <div className="max-h-25  overflow-y-auto space-y-1">
-                            {order.packing_groups.map((packing_group) => (
-                              <div className="grid grid-cols-2 gap-3 text-xs p-1">
-                                <div className="bg-gray-50 p-2 rounded">
-                                  <p className="text-gray-500"><span className="font-medium text-gray-700">Packing : </span>{packing_group.packing_size}</p>
+                    <div className="p-2  border-2 border-dashed border-red-200">
+                      {/*Packing group detials*/}
+                      <p className="text-md  pb-2 font-semibold">Packing Details:</p>
+                      {order.packing_groups.length > 0 ? (
+                        <div className="space-y-2">
+                          {order.packing_groups.map((packing_group) => (
+                            <div 
+                              key={packing_group.id}
+                              className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-1 rounded-lg border-2 border-dashed border-yellow-500 flex items-center gap-3"
+                            >
+                              <div className="text-2xl flex-shrink-0">📦</div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-yellow-900 text-sm mb-1">
+                                  {packing_group.packing_size}
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
-                                  <p className="text-gray-500"><span className="font-medium text-gray-700"> No. of Bottles : </span>{packing_group.no_of_bottles}</p>
+                                <div className="text-yellow-800 text-xs">
+                                  Quantity: {packing_group.no_of_bottles} bottles
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ):(
-                      <div className="border-2 p-2">
-                        <p className="text-xs">No Packing Groups for this order</p>
-                      </div>
-                    )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-100 border-2 border-dashed border-gray-300 p-3 rounded-lg">
+                          <p className="text-xs text-gray-500 text-center">No Packing Groups for this order</p>
+                        </div>
+                      )}
+
+                      {/*Old Packing */}
+                      {/*<p className="text-md font-semibold">Packing Details:</p>
+                      {order.packing_groups.length > 0 ? (
+                        <div className="border-2 p-0.5">
+                          {order.packing_groups.length > 0 && (
+                            <div className="max-h-25  overflow-y-auto space-y-1">
+                              {order.packing_groups.map((packing_group) => (
+                                <div className="grid grid-cols-2 gap-3 text-xs p-1">
+                                  <div className="bg-gray-50 p-2 rounded">
+                                    <p className="text-gray-500"><span className="font-medium text-gray-700">Packing : </span>{packing_group.packing_size}</p>
+                                  </div>
+                                  <div className="bg-gray-50 p-2 rounded">
+                                    <p className="text-gray-500"><span className="font-medium text-gray-700"> No. of Bottles : </span>{packing_group.no_of_bottles}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ):(
+                        <div className="border-2 p-2">
+                          <p className="text-xs">No Packing Groups for this order</p>
+                        </div>
+                      )} */}
+                    </div>
+                    
                     
                   </div> 
 
@@ -637,9 +667,9 @@ const ShopFloorTab = () => {
                       <span className="text-xs font-medium text-gray-700">Progress</span>
                       <span className="text-xs text-gray-600">{getProgressPercentage(order.status)}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-50 rounded-full h-2">
                       <div 
-                        className="h-2 rounded-full bg-fuchsia-600 transition-all duration-300"
+                        className="h-2 rounded-full bg-red-300 transition-all duration-300"
                         style={{ width: `${getProgressPercentage(order.status)}%` }}
                       ></div>
                     </div>

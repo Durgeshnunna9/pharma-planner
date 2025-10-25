@@ -838,7 +838,7 @@ const ProductionTab = () => {
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
                     <p className="text-gray-600 mt-1">
-                      Brand: {manufacturingOrder.brand_name} | Company: {manufacturingOrder.company_name}
+                      <span className="font-bold">Brand: </span>{manufacturingOrder.brand_name} | <span className="font-bold">Company: </span> {manufacturingOrder.company_name}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className="px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
@@ -847,7 +847,7 @@ const ProductionTab = () => {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                         manufacturingOrder.category === "Human" 
                           ? "bg-blue-100 text-blue-800" 
-                          : "bg-purple-100 text-purple-800"
+                          : "bg-amber-100 text-amber-800"
                       }`}>
                         {manufacturingOrder.category}
                       </span>
@@ -860,7 +860,7 @@ const ProductionTab = () => {
                     </div>
                   </div>
                   <div key={manufacturingOrder.order_id} className="text-right text-sm text-gray-500 space-y-1 text-center">
-                    <p className="bg-green-100 text-green-900 rounded-full px-2 py-1">
+                    <p className="bg-pink-100 text-pink-900 rounded-full px-2 py-1">
                       Quantity: {manufacturingOrder.order_quantity || "0"}L
                     </p>
                     <div className="flex flex-col gap-2">
