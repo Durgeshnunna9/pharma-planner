@@ -16,6 +16,7 @@ interface Notes{
   note_id: string;
 }
 interface PackingGroup {
+  id: string;
   packing_size: string;
   no_of_bottles: number;
 }
@@ -121,19 +122,60 @@ const ShopFloorTab = () => {
 
   
   // Filter orders based on search term and status filter
+  // useEffect(() => {
+  //   let filtered = shopFloorOrders;
+  
+  //   // ✅ Apply multiple status filter (with "All" special handling)
+  //   if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
+  //     filtered = filtered.filter(order => 
+  //       (statusFilter.includes("All") ? order.status !== "Dispatched" : statusFilter.includes(order.status))
+  //     );
+  //   }
+  
+  //   // ✅ Apply Human/Vet filter
+  //   if (categoryFilter !== "All") {
+  //     filtered = filtered.filter((order) => order.category === categoryFilter);
+  //   }
+  
+  //   // ✅ Apply search filter
+  //   if (searchTerm) {
+  //     const lowerSearch = searchTerm.toLowerCase();
+  //     filtered = filtered.filter(order =>
+  //       order.product_name?.toLowerCase().includes(lowerSearch) ||
+  //       order.brand_name?.toLowerCase().includes(lowerSearch) ||
+  //       order.batch_number?.toLowerCase().includes(lowerSearch) ||
+  //       order.company_name?.toLowerCase().includes(lowerSearch)
+  //     );
+  //   }
+  //   // ✅ Sort by priority (optional) then by expected delivery date (soonest first)
+  //   const sorted = [...filtered].sort((a, b) => {
+  //     if (priorityFirst) {
+  //       const ap = priorityOrderIds.has(a.order_id) ? 1 : 0;
+  //       const bp = priorityOrderIds.has(b.order_id) ? 1 : 0;
+  //       if (ap !== bp) return bp - ap; // priority first
+  //     }
+  //     const ad = a.expected_delivery_date ? new Date(a.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
+  //     const bd = b.expected_delivery_date ? new Date(b.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
+  //     return ad - bd; // quickest delivery (earliest date) first
+  //   });
+
+  //   setFilteredOrders(sorted);
+  // }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds]);
+
   useEffect(() => {
     let filtered = shopFloorOrders;
   
+    // ✅ Always hide "Dispatched"
+    filtered = filtered.filter(order => order.status !== "Dispatched");
+  
     // ✅ Apply multiple status filter (with "All" special handling)
     if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
-      filtered = filtered.filter(order => 
-        (statusFilter.includes("All") ? order.status !== "Dispatched" : statusFilter.includes(order.status))
-      );
+      filtered = filtered.filter(order => statusFilter.includes(order.status));
     }
   
-    // ✅ Apply Human/Vet filter
+    // ✅ Apply Human/Vet category filter
     if (categoryFilter !== "All") {
-      filtered = filtered.filter((order) => order.category === categoryFilter);
+      filtered = filtered.filter(order => order.category === categoryFilter);
     }
   
     // ✅ Apply search filter
@@ -146,20 +188,22 @@ const ShopFloorTab = () => {
         order.company_name?.toLowerCase().includes(lowerSearch)
       );
     }
-    // ✅ Sort by priority (optional) then by expected delivery date (soonest first)
+  
+    // ✅ Sort by priority first, then delivery date
     const sorted = [...filtered].sort((a, b) => {
       if (priorityFirst) {
         const ap = priorityOrderIds.has(a.order_id) ? 1 : 0;
         const bp = priorityOrderIds.has(b.order_id) ? 1 : 0;
-        if (ap !== bp) return bp - ap; // priority first
+        if (ap !== bp) return bp - ap;
       }
       const ad = a.expected_delivery_date ? new Date(a.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
       const bd = b.expected_delivery_date ? new Date(b.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
-      return ad - bd; // quickest delivery (earliest date) first
+      return ad - bd;
     });
-
+  
     setFilteredOrders(sorted);
   }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds]);
+  
   
   
   // Update status in DB
@@ -373,34 +417,6 @@ const ShopFloorTab = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      {/* <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search orders by product, brand, batch, or customer..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-5 h-6 text-gray-500" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Status ({totalOrders})</SelectItem>
-              <SelectItem value="Under Production">Under Production ({getStatusCount("Under Production")})</SelectItem>
-              <SelectItem value="Filling">Filling ({getStatusCount("Filling")})</SelectItem>
-              <SelectItem value="Labelling">Labelling ({getStatusCount("Labelling")})</SelectItem>
-              <SelectItem value="Packing">Packing ({getStatusCount("Packing")})</SelectItem>
-              <SelectItem value="Ready to Dispatch">Ready to Dispatch ({getStatusCount("Ready to Dispatch")})</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div> */}
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         {/* Search */}
@@ -571,14 +587,26 @@ const ShopFloorTab = () => {
 
                   {/* Customer and Order Details */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-xs pb-3">
                       <Building2 className="w-5 h-4 text-gray-500" />
-                      <span className="font-medium text-gray-700">{order.company_name}</span>
+                      <span className="font-medium text-gray-700 ">{order.company_name}</span>
                     </div>
-                    <div className="bg-gray-50 p-2 rounded-sm">
-                      <p className="text-gray-600"><span className="font-medium text-gray-700">Order Quantity : </span> {order.order_quantity}L </p>
-                    </div>
-                    <div className="p-2  border-2 border-dashed border-red-200">
+                    <div className="border-2 border-green-500 bg-white p-3 rounded-lg relative">
+                      <div className="absolute -top-2.5 left-3 bg-white px-2 text-green-600 text-xs font-bold uppercase">
+                        Order Info
+                      </div>
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="w-10 h-10 bg-green-100 text-green-600 rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                          📦
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-800 text-sm">
+                            <span className="font-semibold text-green-700 pb-2">Order Quantity: </span>
+                            {order.order_quantity}L
+                          </p>
+                        </div>
+                      </div>
+                      <div className="p-2  border-2 border-dashed border-red-200 rounded-md mb-3 mt-1">
                       {/*Packing group detials*/}
                       <p className="text-md  pb-2 font-semibold">Packing Details:</p>
                       {order.packing_groups.length > 0 ? (
@@ -590,11 +618,11 @@ const ShopFloorTab = () => {
                             >
                               <div className="text-2xl flex-shrink-0">📦</div>
                               <div className="flex-1">
-                                <div className="font-semibold text-yellow-900 text-sm mb-1">
-                                  {packing_group.packing_size}
+                                <div className="text-yellow-900 text-sm mb-1">
+                                  Packing Size: <span className="font-semibold">{packing_group.packing_size}</span>
                                 </div>
-                                <div className="text-yellow-800 text-xs">
-                                  Quantity: {packing_group.no_of_bottles} bottles
+                                <div className="text-yellow-800 text-sm">
+                                 Quantity: <span className="font-semibold">{packing_group.no_of_bottles} bottles</span>
                                 </div>
                               </div>
                             </div>
@@ -631,29 +659,32 @@ const ShopFloorTab = () => {
                         </div>
                       )} */}
                     </div>
+                    {/* Dates */}
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                        <span className={`text-gray-600 text-sm font-semibold ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-900 text-sm"}`}> Expected Delivery Date : {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Manufactured Date :</span> {order.manufacturing_date ? new Date(order.manufacturing_date).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Expiry Date :</span> {order.expiry_date ? new Date(order.expiry_date).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                      {/* <div className="flex items-center gap-2">
+                        <Hash className="w-3 h-3 text-gray-500" />
+                        <span className="text-gray-600">Order: {order.order_id}</span>
+                      </div> */}
+                    </div>
+                      </div>
                     
                     
                   </div> 
 
-                  {/* Dates */}
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className={`text-gray-600 ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-500 text-xs"}`}> <span className="text-sm font-semibold text-black">Expected Delivery Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Manufactured Date :</span> {order.manufacturing_date ? new Date(order.manufacturing_date).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3 h-3 text-gray-500" />
-                      <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Expiry Date :</span> {order.expiry_date ? new Date(order.expiry_date).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                    {/* <div className="flex items-center gap-2">
-                      <Hash className="w-3 h-3 text-gray-500" />
-                      <span className="text-gray-600">Order: {order.order_id}</span>
-                    </div> */}
-                  </div>
+                  
+                    
 
                   {/* Current Status Badge */}
                   <div className="flex justify-center">

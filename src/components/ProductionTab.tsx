@@ -32,6 +32,8 @@ interface ManufacturingOrder {
   expiry_date: string;
   packing_groups: PackingGroup[]; // multiple groups now
   status: "Unassigned" | "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
+  bottles_present: boolean;
+  labels_present: boolean;
 }
 
 const ProductionTab = () => {
@@ -56,6 +58,8 @@ const ProductionTab = () => {
     expiry_date: "",
     batch_number: "",
     status: "Unassigned",
+    bottles_present: false,
+    labels_present: false,
 
     
   });
@@ -93,6 +97,8 @@ const ProductionTab = () => {
     ],
     batch_number: "" ,
     status: "Unassigned",
+    bottles_present: false,
+    labels_present: false,
     
   });
 
@@ -297,6 +303,8 @@ const ProductionTab = () => {
         manufacturing_date: newManufacturingOrder.manufacturing_date ? `${newManufacturingOrder.manufacturing_date}-01` : null,  // 🟢 use converted date
         expiry_date: newManufacturingOrder.expiry_date ? `${newManufacturingOrder.expiry_date}-01` : null, // 🟢 use converted date
         status: newManufacturingOrder.status || "Unassigned",
+        bottles_present: newManufacturingOrder.bottles_present,
+        labels_present: newManufacturingOrder.labels_present,
         // optionally store other fields like dates or status
       }])
       .select();
@@ -348,7 +356,9 @@ const ProductionTab = () => {
       manufacturing_date: "",
       expiry_date: "",
       batch_number: "",
-      status: "Unassigned"
+      status: "Unassigned",
+      bottles_present: false,
+      labels_present: false
     });
     setShowAddForm(false);
 
@@ -471,6 +481,36 @@ const ProductionTab = () => {
   //   toast({ title: "Success", description: "Order updated successfully." });
   // };
   
+  const BooleanField = ({ label, value, onChange, isEditing }) => (
+    <div className="flex items-center gap-3">
+      <span className="font-medium">{label}:</span>
+  
+      {isEditing ? (
+        <button
+          type="button"
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            value ? "bg-green-500" : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              value ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      ) : (
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-medium ${
+            value ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`}
+        >
+          {value ? "Present" : "Not Present"}
+        </span>
+      )}
+    </div>
+  );
+
   const sortedOrders = [...filteredManufacturingOrder].sort(
     (a, b) => Number(b.order_id) - Number(a.order_id)
   );
@@ -669,35 +709,7 @@ const ProductionTab = () => {
                 + Add packing group
               </Button>
             </div> 
-            {/* <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
-                <Input
-                  id="expected_delivery_date"
-                  type="date"
-                  value={newManufacturingOrder.expected_delivery_date}
-                  onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, expected_delivery_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="manufacturing_date">Manufacturing Date</Label>
-                <Input
-                  id="manufacturing_date"
-                  type="date"
-                  value={newManufacturingOrder.manufacturing_date}
-                  onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, manufacturing_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="expiry_date">Expiry Date</Label>
-                <Input
-                  id="expiry_date"
-                  type="date"
-                  value={newManufacturingOrder.expiry_date}
-                  onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, expiry_date: e.target.value })}
-                />
-              </div>
-            </div> */}
+            
 
             <div className="flex gap-3">
               <Button onClick={() => 
@@ -715,7 +727,9 @@ const ProductionTab = () => {
                   batch_number: "",
                   status: "Unassigned",
                   brand_name: "",
-                  company_name: ""
+                  company_name: "",
+                  bottles_present: false,
+                  labels_present: false
                 });
                 setProductSearch("");       // ✅ clear input text
                 setCustomerSearch(""); }} 
@@ -741,7 +755,9 @@ const ProductionTab = () => {
                     batch_number: "",
                     status: "Unassigned",
                     brand_name: "",
-                    company_name: ""
+                    company_name: "",
+                    bottles_present: false,
+                    labels_present: false
                   });
                   setProductSearch("");       // ✅ clear input text
                   setCustomerSearch("");      // ✅ clear customer input
@@ -796,27 +812,7 @@ const ProductionTab = () => {
           />
         </div>
       </div>
-      {/* <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setAssignmentFilter("all")}
-          className={`px-4 py-2 rounded ${assignmentFilter === "all" ? "bg-green-600 text-white" : "bg-gray-200"}`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setAssignmentFilter("assigned")}
-          className={`px-4 py-2 rounded ${assignmentFilter === "assigned" ? "bg-green-600 text-white" : "bg-gray-200"}`}
-        >
-          Assigned
-        </button>
-        <button
-          onClick={() => setAssignmentFilter("unassigned")}
-          className={`px-4 py-2 rounded ${assignmentFilter === "unassigned" ? "bg-green-600 text-white" : "bg-gray-200"}`}
-        >
-          Unassigned
-        </button>
-      </div> */}
-
+      
       {/* Orders List */}
       <div className="grid gap-4 ">
         {filteredOrdersByAssignment.length === 0 ? (
@@ -836,9 +832,9 @@ const ProductionTab = () => {
                     <Package className="w-7 h-8"/>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
                     <p className="text-gray-600 mt-1">
-                      <span className="font-bold">Brand: </span>{manufacturingOrder.brand_name} | <span className="font-bold">Company: </span> {manufacturingOrder.company_name}
+                      <span className="font-bold text-gray-700">Brand: </span>{manufacturingOrder.brand_name} | <span className="font-bold text-gray-700">Company: </span> {manufacturingOrder.company_name}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <span className="px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
@@ -901,6 +897,8 @@ const ProductionTab = () => {
               packing_groups: [...selectedManufacturingOrder.packing_groups],
               batch_number: selectedManufacturingOrder.batch_number,
               status: selectedManufacturingOrder.status,
+              bottles_present: selectedManufacturingOrder.bottles_present,
+              labels_present: selectedManufacturingOrder.labels_present
             });
           }
         }}>
@@ -1144,6 +1142,62 @@ const ProductionTab = () => {
                 </div>
               )}
 
+              {/* Bottles Present */}
+              <div>
+                <label className="text-sm font-bold text-gray-900 mb-1">
+                  Bottles : 
+                </label>
+                {isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditForm({ ...editForm, bottles_present: !editForm.bottles_present })
+                    }
+                    className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+                      editForm.bottles_present ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                        editForm.bottles_present ? "translate-x-6" : "translate-x-0"
+                      }`}
+                    ></span>
+                  </button>
+                ) : (
+                  <span className="text-sm text-gray-700">
+                    {selectedManufacturingOrder.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}
+                  </span>
+                )}
+              </div>
+
+              {/* Labels Present */}
+              <div>
+                <label className="text-sm font-bold text-gray-900 mb-1">
+                  Labels : 
+                </label>
+                {isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditForm({ ...editForm, labels_present: !editForm.labels_present })
+                    }
+                    className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+                      editForm.labels_present ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                        editForm.labels_present ? "translate-x-6" : "translate-x-0"
+                      }`}
+                    ></span>
+                  </button>
+                ) : (
+                  <span className="text-sm text-gray-700">
+                    {selectedManufacturingOrder.labels_present ? "In Stock ✅" : "Out of Stock ❌"}
+                  </span>
+                )}
+              </div>
+              
               {/* Manufacturing Order Brand Name */}
               <div>
                 {isEditing ? (
@@ -1230,7 +1284,6 @@ const ProductionTab = () => {
                     value={editForm.batch_number ?? ""}
                     onChange={e => setEditForm({ ...editForm, batch_number: e.target.value })}
                     placeholder="Unassigned"
-                    readOnly
                     
                   />
                   {!editForm.batch_number && (
@@ -1252,7 +1305,8 @@ const ProductionTab = () => {
                     </p>
                     <span className="text-sm">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
                   </div>
-                )}
+                )
+              }
                
               
               {/* Action Buttons */}
@@ -1279,6 +1333,8 @@ const ProductionTab = () => {
                           status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
                           ? "InQueue"
                           : selectedManufacturingOrder.status, // ✅ fixed condition
+                          bottles_present: editForm.bottles_present,
+                          labels_present: editForm.labels_present,
                         })
                         .eq('order_id', selectedManufacturingOrder.order_id);
 
@@ -1333,6 +1389,8 @@ const ProductionTab = () => {
                           status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
                           ? "InQueue"
                           : selectedManufacturingOrder.status, // ✅ fixed condition
+                          bottles_present: editForm.bottles_present,
+                          labels_present: editForm.labels_present
                         };
 
                         setManufacturingOrders(prev =>
@@ -1367,6 +1425,8 @@ const ProductionTab = () => {
                           packing_groups: [...selectedManufacturingOrder.packing_groups],
                           status: selectedManufacturingOrder.status,
                           batch_number: selectedManufacturingOrder.batch_number,
+                          bottles_present: selectedManufacturingOrder.bottles_present,
+                          labels_present: selectedManufacturingOrder.labels_present,
                           
                         });
                       }}
@@ -1391,7 +1451,8 @@ const ProductionTab = () => {
                           packing_groups: [...(selectedManufacturingOrder.packing_groups || [])],
                           status: selectedManufacturingOrder.status,
                           batch_number: selectedManufacturingOrder.batch_number,
-                          
+                          bottles_present: selectedManufacturingOrder.bottles_present,
+                          labels_present: selectedManufacturingOrder.labels_present,
                         });
                         setIsEditing(true);
                       }}
