@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Navigate, useNavigate } from "react-router-dom";
+import Logo from "../media/logo.png";
+import FullName from "../media/fullname-1.png"
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PackageOpen,
@@ -66,11 +68,11 @@ const Index = () => {
 
   // ✅ Tabs by role
   const tabs = [
-    { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab, roles: ["user", "admin", "manager"] },
-    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["user", "admin", "manager"] },
+    { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab, roles: ["user", "admin", "manager","store"] },
+    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["user", "admin", "manager","store"] },
     { id: "customers", label: "Customers", icon: Smile, component: CustomersTab, roles: ["user", "admin", "manager"] },
     { id: "production", label: "Production", icon: Factory, component: ProductionTab, roles: ["admin", "manager"] },
-    { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin", "production", "manager"] },
+    { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin", "production", "manager", "qc"] },
   ];
 
   const visibleTabs = tabs.filter((tab) => tab.roles.includes(profile?.role));
@@ -95,9 +97,9 @@ const Index = () => {
         <div>
           <div className={`flex items-center justify-between ${!sidebarOpen ? "flex-row" : "flex-col"} p-4 border-b`}>
             <div className="flex items-center m-0 pr-0">
-            {!sidebarOpen?<img src="..\src\media\logo.png" className="w-7 h-6"/>:<span></span>}
+            {!sidebarOpen?<img src={Logo} alt="Company Logo" className="w-7 h-6"/>:<span></span>}
               {sidebarOpen && (
-                <img src="..\src\media\fullname-1.png" />
+                <img src={FullName} alt="Company Full Logo" />
               )}
             </div>
             <button

@@ -14,12 +14,26 @@ const Login = () => {
   const [avatar, setAvatar] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isUppercaseDetected, setIsUppercaseDetected] = useState(false);
   const navigate = useNavigate();
+
   useEffect(() => {
     // Clear fields every time the component mounts
     setEmail("");
     setPassword("");
   }, []);
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+
+    // ✅ Check if last character is uppercase (A–Z)
+    const lastChar = value.slice(-1);
+    if (/[A-Z]/.test(lastChar)) {
+      setIsUppercaseDetected(true);
+    } else {
+      setIsUppercaseDetected(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -91,11 +105,13 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center flex-col justify-center bg-gradient-to-br from-green-50 to-white">
-      <h1 className="text-5xl font-bold mb-20"> Welcome to Sansan Group</h1>
+      <h1 className="text-5xl font-bold mb-20">Welcome to Sansan Group</h1>
+
       <Card className="p-8 w-full max-w-md shadow-lg">
         <h2 className="text-2xl font-bold mb-6 text-center">
           {isSignup ? "Create Account" : "Login"}
         </h2>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSignup && (
             <>
@@ -113,6 +129,7 @@ const Login = () => {
               />
             </>
           )}
+
           <Input
             type="email"
             placeholder="Email"
@@ -121,15 +138,22 @@ const Login = () => {
             autoComplete="off"
             required
           />
+
           <Input
             type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={handleChange}
+            placeholder="Enter password"
+            style={{ padding: "8px", fontSize: "16px" }}
             autoComplete="new-password"
             required
           />
+          {isUppercaseDetected && (
+            <p style={{ color: "red", marginTop: "8px" }}>
+              ⚠️⬆️Uppercase character detected 
+            </p>
+          )}
           {error && <p className="text-red-500 text-sm">{error}</p>}
+
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Please wait..." : isSignup ? "Sign Up" : "Login"}
           </Button>
@@ -145,21 +169,28 @@ const Login = () => {
             {isSignup ? "Login" : "Sign up"}
           </span>
         </p>
-        <Card className="p-8 w-full max-w-md shadow-lg mt-10 pt-4">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Sample Login Details</h2>
 
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium mb-6 text-gray-900 text-center">Login Details for User</h3>
+        {/* ✅ Sample Login Card */}
+        <Card className="p-8 w-full max-w-md shadow-lg mt-10 pt-4">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">
+            Sample Login Details
+          </h2>
+
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-medium mb-6 text-gray-900 text-center">
+              Login Details for User
+            </h3>
             <p className="text-gray-600 mb-1">
-            <span className="font-semibold text-gray-800">Username:</span> test_view@sansan.com
+              <span className="font-semibold text-gray-800">Username:</span>{" "}
+              test_view@sansan.com
             </p>
             <p className="text-gray-600">
-            <span className="font-semibold text-gray-800">Password:</span> test123
+              <span className="font-semibold text-gray-800">Password:</span>{" "}
+              test123
             </p>
-        </div>
+          </div>
+        </Card>
       </Card>
-      </Card>
-      
     </div>
   );
 };
