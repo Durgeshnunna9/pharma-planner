@@ -36,6 +36,8 @@ interface ShopFloorOrder {
   order_quantity: number;
   packing_groups: PackingGroup[];
   notes: Notes[];
+  bottles_present: boolean;
+  labels_present: boolean;
 }
 
 const ShopFloorTab = () => {
@@ -601,14 +603,15 @@ const ShopFloorTab = () => {
                         </div>
                         <div className="flex-1">
                           <p className="text-gray-800 text-sm">
-                            <span className="font-semibold text-green-700 pb-2">Order Quantity: </span>
+                            <span className="font-bold text-green-700 pb-2">Order Quantity: </span>
                             {order.order_quantity}L
                           </p>
                         </div>
                       </div>
                       <div className="p-2  border-2 border-dashed border-red-200 rounded-md mb-3 mt-1">
+
                       {/*Packing group detials*/}
-                      <p className="text-md  pb-2 font-semibold">Packing Details:</p>
+                      <p className="text-md pb-2 font-bold">Packing Details:</p>
                       {order.packing_groups.length > 0 ? (
                         <div className="space-y-2">
                           {order.packing_groups.map((packing_group) => (
@@ -633,59 +636,60 @@ const ShopFloorTab = () => {
                           <p className="text-xs text-gray-500 text-center">No Packing Groups for this order</p>
                         </div>
                       )}
-
-                      {/*Old Packing */}
-                      {/*<p className="text-md font-semibold">Packing Details:</p>
-                      {order.packing_groups.length > 0 ? (
-                        <div className="border-2 p-0.5">
-                          {order.packing_groups.length > 0 && (
-                            <div className="max-h-25  overflow-y-auto space-y-1">
-                              {order.packing_groups.map((packing_group) => (
-                                <div className="grid grid-cols-2 gap-3 text-xs p-1">
-                                  <div className="bg-gray-50 p-2 rounded">
-                                    <p className="text-gray-500"><span className="font-medium text-gray-700">Packing : </span>{packing_group.packing_size}</p>
+                    </div>
+                    {/*Old Packing */}        
+                      {/* <div>
+                        <p className="text-md font-semibold">Packing Details:</p>
+                        {order.packing_groups.length > 0 ? (
+                          <div className="border-2 p-0.5">
+                            {order.packing_groups.length > 0 && (
+                              <div className="max-h-25  overflow-y-auto space-y-1">
+                                {order.packing_groups.map((packing_group) => (
+                                  <div className="grid grid-cols-2 gap-3 text-xs p-1">
+                                    <div className="bg-gray-50 p-2 rounded">
+                                      <p className="text-gray-500"><span className="font-medium text-gray-700">Packing : </span>{packing_group.packing_size}</p>
+                                    </div>
+                                    <div className="bg-gray-50 p-2 rounded">
+                                      <p className="text-gray-500"><span className="font-medium text-gray-700"> No. of Bottles : </span>{packing_group.no_of_bottles}</p>
+                                    </div>
                                   </div>
-                                  <div className="bg-gray-50 p-2 rounded">
-                                    <p className="text-gray-500"><span className="font-medium text-gray-700"> No. of Bottles : </span>{packing_group.no_of_bottles}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ):(
-                        <div className="border-2 p-2">
-                          <p className="text-xs">No Packing Groups for this order</p>
-                        </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ):(
+                          <div className="border-2 p-2">
+                            <p className="text-xs">No Packing Groups for this order</p>
+                          </div>
+                      </div>
                       )} */}
+
+                    {/*Item Availability */}
+                    <div className="space-y-2 pb-2 ">
+                      <p className="font-semibold text-sm"><span className="font-bold text-gray-900">Bottles: </span> {order.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}</p>
+                      <p className="font-semibold text-sm"><span className="font-bold text-gray-900">Labels: </span> {order.labels_present ? "In Stock ✅" : "Out of Stock ❌"}</p>
                     </div>
                     {/* Dates */}
                     <div className="space-y-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-3 h-3 text-gray-500" />
-                        <span className={`text-gray-600 text-sm font-semibold ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-900 text-sm"}`}> Expected Delivery Date : {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span className={`text-gray-600 text-sm font-semibold ${calculateIsOverdue(order) ? "text-red-600 text-lg font-bold" : "text-gray-900 text-sm"}`}> <span className="font-bold text-gray-900">Expected Delivery Date :</span> {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-3 h-3 text-gray-500" />
-                        <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Manufactured Date :</span> {order.manufacturing_date ? new Date(order.manufacturing_date).toLocaleDateString() : 'N/A'}</span>
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span className="text-xs text-gray-600"> <span className="text-sm font-bold text-black">Manufactured Date :</span> {order.manufacturing_date ? new Date(order.manufacturing_date).toLocaleDateString() : 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-3 h-3 text-gray-500" />
-                        <span className="text-xs text-gray-600"> <span className="text-xs font-semibold text-black">Expiry Date :</span> {order.expiry_date ? new Date(order.expiry_date).toLocaleDateString() : 'N/A'}</span>
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span className="text-xs text-gray-600"> <span className="text-sm font-bold text-black">Expiry Date :</span> {order.expiry_date ? new Date(order.expiry_date).toLocaleDateString() : 'N/A'}</span>
                       </div>
                       {/* <div className="flex items-center gap-2">
                         <Hash className="w-3 h-3 text-gray-500" />
                         <span className="text-gray-600">Order: {order.order_id}</span>
                       </div> */}
                     </div>
-                      </div>
-                    
-                    
+                    </div>
                   </div> 
-
-                  
-                    
-
                   {/* Current Status Badge */}
                   <div className="flex justify-center">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
