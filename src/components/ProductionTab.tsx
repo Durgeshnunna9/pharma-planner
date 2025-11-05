@@ -134,6 +134,8 @@ const ProductionTab = () => {
       const transformedOrders = (data || []).map((manufacturingOrder) => ({
         ...manufacturingOrder,
         status: manufacturingOrder.status || "Unassigned",
+        bottles_present: Boolean(manufacturingOrder.bottles_present), // ✅ Explicit conversion
+        labels_present: Boolean(manufacturingOrder.labels_present),   // ✅ Explicit conversion
       }));
   
       // 🟩 Create a map of batchAssigned states
@@ -1177,60 +1179,74 @@ const ProductionTab = () => {
               )}
 
               {/* Bottles Present */}
-              <div>
-                <label className="text-sm font-bold text-gray-900 mb-1">
-                  Bottles : 
-                </label>
-                {isEditing ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditForm({ ...editForm, bottles_present: !editForm.bottles_present })
-                    }
-                    className={`w-12 h-6 flex items-center rounded-full transition-colors ${
-                      editForm.bottles_present ? "bg-green-500" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-                        editForm.bottles_present ? "translate-x-6" : "translate-x-0"
-                      }`}
-                    ></span>
-                  </button>
-                ) : (
-                  <span className="text-sm text-gray-700">
-                    {selectedManufacturingOrder.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}
-                  </span>
-                )}
-              </div>
+<div className="flex items-center gap-3">
+  <label className="text-sm font-bold text-gray-900">
+    Bottles: 
+  </label>
+  {isEditing ? (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          const newValue = !editForm.bottles_present;
+          console.log("🔴 Toggling bottles_present from", editForm.bottles_present, "to", newValue);
+          setEditForm({ ...editForm, bottles_present: newValue });
+        }}
+        className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+          editForm.bottles_present ? "bg-green-500" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+            editForm.bottles_present ? "translate-x-6" : "translate-x-0"
+          }`}
+        ></span>
+      </button>
+      <span className="text-xs text-gray-600">
+        {editForm.bottles_present ? "In Stock" : "Out of Stock"}
+      </span>
+    </div>
+  ) : (
+    <span className="text-sm text-gray-700">
+      {selectedManufacturingOrder.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}
+    </span>
+  )}
+</div>
 
-              {/* Labels Present */}
-              <div>
-                <label className="text-sm font-bold text-gray-900 mb-1">
-                  Labels : 
-                </label>
-                {isEditing ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditForm({ ...editForm, labels_present: !editForm.labels_present })
-                    }
-                    className={`w-12 h-6 flex items-center rounded-full transition-colors ${
-                      editForm.labels_present ? "bg-green-500" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-                        editForm.labels_present ? "translate-x-6" : "translate-x-0"
-                      }`}
-                    ></span>
-                  </button>
-                ) : (
-                  <span className="text-sm text-gray-700">
-                    {selectedManufacturingOrder.labels_present ? "In Stock ✅" : "Out of Stock ❌"}
-                  </span>
-                )}
-              </div>
+{/* Labels Present */}
+<div className="flex items-center gap-3">
+  <label className="text-sm font-bold text-gray-900">
+    Labels: 
+  </label>
+  {isEditing ? (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          const newValue = !editForm.labels_present;
+          console.log("🔵 Toggling labels_present from", editForm.labels_present, "to", newValue);
+          setEditForm({ ...editForm, labels_present: newValue });
+        }}
+        className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+          editForm.labels_present ? "bg-green-500" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+            editForm.labels_present ? "translate-x-6" : "translate-x-0"
+          }`}
+        ></span>
+      </button>
+      <span className="text-xs text-gray-600">
+        {editForm.labels_present ? "In Stock" : "Out of Stock"}
+      </span>
+    </div>
+  ) : (
+    <span className="text-sm text-gray-700">
+      {selectedManufacturingOrder.labels_present ? "In Stock ✅" : "Out of Stock ❌"}
+    </span>
+  )}
+</div>
               
               {/* Manufacturing Order Brand Name */}
               <div>
@@ -1353,24 +1369,24 @@ const ProductionTab = () => {
                       onClick={async () => {
                         // 1) Update core manufacturing order fields
                         const { error: orderError } = await supabase
-                        .from('manufacturing_orders')
-                        .update({
-                          product_name: editForm.product_name,
-                          category: editForm.category,
-                          order_quantity: editForm.order_quantity,
-                          brand_name: editForm.brand_name,
-                          company_name: editForm.company_name,
-                          expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
-                          manufacturing_date: selectedManufacturingOrder.manufacturing_date,
-                          expiry_date: selectedManufacturingOrder.expiry_date,
-                          batch_number: editForm.batch_number, // ✅ FIXED (was selectedManufacturingOrder.batch_number)
-                          status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
-                          ? "InQueue"
-                          : selectedManufacturingOrder.status, // ✅ fixed condition
-                          bottles_present: editForm.bottles_present,
-                          labels_present: editForm.labels_present,
-                        })
-                        .eq('order_id', selectedManufacturingOrder.order_id);
+                          .from('manufacturing_orders')
+                          .update({
+                            product_name: editForm.product_name,
+                            category: editForm.category,
+                            order_quantity: editForm.order_quantity,
+                            brand_name: editForm.brand_name,
+                            company_name: editForm.company_name,
+                            expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
+                            manufacturing_date: selectedManufacturingOrder.manufacturing_date,
+                            expiry_date: selectedManufacturingOrder.expiry_date,
+                            batch_number: editForm.batch_number,
+                            status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
+                              ? "InQueue"
+                              : selectedManufacturingOrder.status,
+                            bottles_present: editForm.bottles_present,  // ✅ Using editForm
+                            labels_present: editForm.labels_present,    // ✅ Using editForm
+                          })
+                          .eq('order_id', selectedManufacturingOrder.order_id);
 
                         if (orderError) {
                           console.error(orderError);
@@ -1407,30 +1423,31 @@ const ProductionTab = () => {
                           }
                         }
 
-                        // 3) Update local state
-                        const updated = {
-                          ...selectedManufacturingOrder,
-                          product_name: editForm.product_name,
-                          category: editForm.category,
-                          order_quantity: editForm.order_quantity,
-                          brand_name: editForm.brand_name,
-                          company_name: editForm.company_name,
-                          packing_groups: editForm.packing_groups,
-                          expected_delivery_date: selectedManufacturingOrder.expected_delivery_date,
-                          manufacturing_date: selectedManufacturingOrder.manufacturing_date,
-                          expiry_date: selectedManufacturingOrder.expiry_date,
-                          batch_number: editForm.batch_number, // ✅ use editForm
-                          status: selectedManufacturingOrder.status === "Unassigned" && editForm.batch_number
-                          ? "InQueue"
-                          : selectedManufacturingOrder.status, // ✅ fixed condition
-                          bottles_present: editForm.bottles_present,
-                          labels_present: editForm.labels_present
+                        // 3) ✅ REFETCH from database to ensure consistency
+                        const { data: refreshedData, error: fetchError } = await supabase
+                          .from("manufacturing_orders_with_packing")
+                          .select("*")
+                          .eq("order_id", selectedManufacturingOrder.order_id)
+                          .single();
+
+                        if (fetchError || !refreshedData) {
+                          console.error(fetchError);
+                          toast({ title: 'Error', description: 'Failed to refresh order data.' });
+                          return;
+                        }
+
+                        // Ensure booleans are properly typed
+                        const refreshedOrder = {
+                          ...refreshedData,
+                          bottles_present: Boolean(refreshedData.bottles_present),
+                          labels_present: Boolean(refreshedData.labels_present),
                         };
 
+                        // Update local state
                         setManufacturingOrders(prev =>
-                          prev.map(o => o.order_id === updated.order_id ? updated : o)
+                          prev.map(o => o.order_id === refreshedOrder.order_id ? refreshedOrder : o)
                         );
-                        setSelectedManufacturingOrder(updated);
+                        setSelectedManufacturingOrder(refreshedOrder);
                         setIsEditing(false);
 
                         toast({
@@ -1474,19 +1491,24 @@ const ProductionTab = () => {
                     <Button
                       variant="outline"
                       onClick={() => {
+                        console.log("🟢 Initializing editForm with:", {
+                          bottles_present: selectedManufacturingOrder.bottles_present,
+                          labels_present: selectedManufacturingOrder.labels_present,
+                        });
+                        
                         setEditForm({
                           order_id: selectedManufacturingOrder.order_id,
                           product_name: selectedManufacturingOrder.product_name,
                           product_description: selectedManufacturingOrder.product_description,
                           category: selectedManufacturingOrder.category,
-                          order_quantity:selectedManufacturingOrder.order_quantity,
-                          brand_name:selectedManufacturingOrder.brand_name,
+                          order_quantity: selectedManufacturingOrder.order_quantity,
+                          brand_name: selectedManufacturingOrder.brand_name,
                           company_name: selectedManufacturingOrder.company_name,
                           packing_groups: [...(selectedManufacturingOrder.packing_groups || [])],
                           status: selectedManufacturingOrder.status,
                           batch_number: selectedManufacturingOrder.batch_number,
-                          bottles_present: selectedManufacturingOrder.bottles_present,
-                          labels_present: selectedManufacturingOrder.labels_present,
+                          bottles_present: Boolean(selectedManufacturingOrder.bottles_present), // ✅ Explicit conversion
+                          labels_present: Boolean(selectedManufacturingOrder.labels_present),   // ✅ Explicit conversion
                         });
                         setIsEditing(true);
                       }}
