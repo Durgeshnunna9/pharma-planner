@@ -70,6 +70,8 @@ const ProductionTab = () => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [batchAssigned, setBatchAssigned] = useState(false);
+  const [batchAssignedMap, setBatchAssignedMap] = useState<{ [orderId: string]: boolean }>({});
   // const [packingSize, setPackingSize] = useState<number>(0); // ml
   // const [bottles, setBottles] = useState<number>(0);
   // const [orderQuantity, setOrderQuantity] = useState<number>(0); // L
@@ -101,14 +103,23 @@ const ProductionTab = () => {
     labels_present: false,
     
   });
-
+  useEffect(() => {
+    if (!isEditing) return;
+  
+    const totalLiters = calculateTotalLiters(editForm.packing_groups);
+    setEditForm((prev) => ({
+      ...prev,
+      order_quantity: parseFloat(totalLiters.toFixed(2)),
+    }));
+  }, [editForm.packing_groups, isEditing]);
   useEffect(() => {
     const fetchData = async () => {
-      const { data: productData } = await supabase.from('product_with_sizes').select('*');
-      const { data: customerData } = await supabase.from('customer').select('*');
+      const { data: productData } = await supabase.from("product_with_sizes").select("*");
+      const { data: customerData } = await supabase.from("customer").select("*");
       setProducts(productData || []);
       setCustomers(customerData || []);
     };
+  
     const loadManufacturingOrders = async () => {
       const { data, error } = await supabase
         .from("manufacturing_orders_with_packing")
@@ -116,20 +127,33 @@ const ProductionTab = () => {
   
       if (error) {
         console.error("Failed to load products", error);
-      } else {
-        const transformedOrders = (data || []).map(manufacturingOrder => ({
-          ...manufacturingOrder,
-          status: manufacturingOrder.status || "Unassigned", // set default if missing/null
-        }));
-  
-        setManufacturingOrders(transformedOrders);
-  
-        console.log(transformedOrders);
+        return;
       }
+  
+      // 🧠 Transform orders + ensure consistent status
+      const transformedOrders = (data || []).map((manufacturingOrder) => ({
+        ...manufacturingOrder,
+        status: manufacturingOrder.status || "Unassigned",
+      }));
+  
+      // 🟩 Create a map of batchAssigned states
+      const batchMap: { [orderId: string]: boolean } = {};
+      transformedOrders.forEach((order) => {
+        batchMap[order.order_id] = !!order.batch_number; // true if batch_number exists
+      });
+  
+      // 🧱 Set both states
+      setManufacturingOrders(transformedOrders);
+      setBatchAssignedMap(batchMap);
+  
+      console.log("Orders Loaded:", transformedOrders);
+      console.log("Batch Assigned Map:", batchMap);
     };
+  
     loadManufacturingOrders();
     fetchData();
   }, []);
+  
 
   // let orderCounter = {
   //   Human: 0,
@@ -230,7 +254,7 @@ const ProductionTab = () => {
 
   // Get the current calculated total
   const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups );
-  const currentEditTotalLiters = calculateTotalLiters(editForm.packing_groups);
+  // const currentEditTotalLiters = calculateTotalLiters(editForm.packing_groups);
 
   
 
@@ -305,6 +329,7 @@ const ProductionTab = () => {
         status: newManufacturingOrder.status || "Unassigned",
         bottles_present: newManufacturingOrder.bottles_present,
         labels_present: newManufacturingOrder.labels_present,
+        batch_number: newManufacturingOrder.batch_number,
         // optionally store other fields like dates or status
       }])
       .select();
@@ -439,8 +464,9 @@ const ProductionTab = () => {
   const assignBatchNumber = async (orderId: string, category: "Human" | "Veterinary") => {
     try {
       // Call the correct function depending on category
-      const fnName = category === "Human" ? "increment_human_batch" : "increment_veterinary_batch";
-      
+      const fnName =
+        category === "Human" ? "increment_human_batch" : "increment_veterinary_batch";
+  
       const { data, error } = await supabase.rpc(fnName);
       if (error) throw error;
   
@@ -456,14 +482,25 @@ const ProductionTab = () => {
   
       if (updateError) throw updateError;
   
-      // Update local state too
+      // ✅ Update local state with batch number
       setManufacturingOrders(prev =>
-        prev.map(o => o.order_id === orderId ? { ...o, batch_number: batch } : o)
+        prev.map(o =>
+          o.order_id === orderId ? { ...o, batch_number: batch } : o
+        )
       );
   
       if (selectedManufacturingOrder?.order_id === orderId) {
-        setSelectedManufacturingOrder({ ...selectedManufacturingOrder, batch_number: batch });
+        setSelectedManufacturingOrder({
+          ...selectedManufacturingOrder,
+          batch_number: batch,
+        });
       }
+  
+      // ✅ Mark as assigned in local tracking map
+      setBatchAssignedMap(prev => ({
+        ...prev,
+        [orderId]: true,
+      }));
   
       return batch;
     } catch (err) {
@@ -471,6 +508,7 @@ const ProductionTab = () => {
       return null;
     }
   };
+  
   // Save edits from modal (including batch_number, packing_groups etc)
   // const saveOrderEdits = () => {
   //   if (!selectedManufacturingOrder) return;
@@ -481,35 +519,35 @@ const ProductionTab = () => {
   //   toast({ title: "Success", description: "Order updated successfully." });
   // };
   
-  const BooleanField = ({ label, value, onChange, isEditing }) => (
-    <div className="flex items-center gap-3">
-      <span className="font-medium">{label}:</span>
+  // const BooleanField = ({ label, value, onChange, isEditing }) => (
+  //   <div className="flex items-center gap-3">
+  //     <span className="font-medium">{label}:</span>
   
-      {isEditing ? (
-        <button
-          type="button"
-          onClick={() => onChange(!value)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            value ? "bg-green-500" : "bg-gray-300"
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              value ? "translate-x-6" : "translate-x-1"
-            }`}
-          />
-        </button>
-      ) : (
-        <span
-          className={`px-3 py-1 rounded-full text-sm font-medium ${
-            value ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-          }`}
-        >
-          {value ? "Present" : "Not Present"}
-        </span>
-      )}
-    </div>
-  );
+  //     {isEditing ? (
+  //       <button
+  //         type="button"
+  //         onClick={() => onChange(!value)}
+  //         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+  //           value ? "bg-green-500" : "bg-gray-300"
+  //         }`}
+  //       >
+  //         <span
+  //           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+  //             value ? "translate-x-6" : "translate-x-1"
+  //           }`}
+  //         />
+  //       </button>
+  //     ) : (
+  //       <span
+  //         className={`px-3 py-1 rounded-full text-sm font-medium ${
+  //           value ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+  //         }`}
+  //       >
+  //         {value ? "Present" : "Not Present"}
+  //       </span>
+  //     )}
+  //   </div>
+  // );
 
   const sortedOrders = [...filteredManufacturingOrder].sort(
     (a, b) => Number(b.order_id) - Number(a.order_id)
@@ -519,17 +557,13 @@ const ProductionTab = () => {
   // const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
 
   const filteredOrdersByAssignment = sortedOrders.filter(order => {
-    const batch = order.batch_number?.toString().trim().toLowerCase();
-    
-
-    if (assignmentFilter === "Assigned") {
-      return batch && batch != "Unassigned";
-    }
-    if (assignmentFilter === "Unassigned") {
-      return !batch || batch === "Unassigned";
-    }
-    return true; // "all"
+    const isAssigned = batchAssignedMap[order.order_id] || false;
+  
+    if (assignmentFilter === "Assigned") return isAssigned;
+    if (assignmentFilter === "Unassigned") return !isAssigned;
+    return true;
   });
+  
 
   return (
     <div className="space-y-6">
@@ -797,7 +831,7 @@ const ProductionTab = () => {
             <SelectContent>
               <SelectItem value="All">All</SelectItem>
               <SelectItem value="Unassigned">Unassigned</SelectItem>
-              <SelectItem value="Assigned">Assigned</SelectItem>
+              {/* <SelectItem value="Assigned">Assigned</SelectItem> */}
             </SelectContent>
           </Select>
         </div>
@@ -1056,7 +1090,7 @@ const ProductionTab = () => {
                     <Input
                       id="order_quantity"
                       type="number"
-                      value={currentEditTotalLiters.toFixed(2)}
+                      value={editForm.order_quantity.toFixed(2)}
                       placeholder="Auto-calculated from packing"
                       readOnly // 👈 prevents manual editing
                       className="bg-gray-50"
@@ -1303,7 +1337,7 @@ const ProductionTab = () => {
                     <p className="text-sm font-bold text-gray-900 ">
                     Batch Number :
                     </p>
-                    <span className="text-sm">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
+                    <span className="text-sm">{selectedManufacturingOrder.batch_number }</span>
                   </div>
                 )
               }

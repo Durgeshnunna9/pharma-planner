@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
+import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
@@ -15,6 +16,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isUppercaseDetected, setIsUppercaseDetected] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -139,15 +141,44 @@ const Login = () => {
             autoComplete="off"
             required
           />
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={handleChange}
+              placeholder="Enter password"
+              style={{
+                padding: "8px 36px 8px 8px",
+                fontSize: "16px",
+                width: "380px",
+              }}
+              autoComplete="new-password"
+              required
+            />
 
-          <Input
+            {/* 👁 Eye Icon */}
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+                color: "#555",
+              }}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </span>
+          </div>
+          {/* <Input
             type="password"
             onChange={handleChange}
             placeholder="Enter password"
             style={{ padding: "8px", fontSize: "16px" }}
             autoComplete="new-password"
             required
-          />
+          /> */}
           {isUppercaseDetected && (
             <p style={{ color: "red", marginTop: "8px" }}>
               ⚠️⬆️Uppercase character detected 
