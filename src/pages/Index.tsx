@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Navigate, useNavigate } from "react-router-dom";
-import Logo from "../media/logo.png";
-import FullName from "../media/fullname-1.png"
+import Logo from "../media/globe.png";
+import FullName from "../media/fORMULATIONS.png"
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PackageOpen,
@@ -84,11 +84,11 @@ const Index = () => {
       <motion.div
         initial={{ width: 78 }}
         animate={{
-          width: sidebarOpen ? 220 : 78,
+          width: sidebarOpen ? 220 : 82,
           opacity: 1,
         }}
         transition={{
-          duration: 0.5,
+          duration: 0.3,
           ease: [0.25, 0.1, 0.25, 1],
         }}
         className="h-screen bg-white border-r shadow-md flex flex-col justify-between fixed left-0 top-0 z-50 overflow-hidden"
@@ -205,10 +205,10 @@ const Index = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -10 }}
             transition={{
-              type: "spring",
-              stiffness: 250,
+              type:"spring",
+              stiffness: 450,
               damping: 20,
-              duration: 0.5,
+              duration: 0.3,
             }}
             className="fixed top-6 left-[240px] z-50"
           >
