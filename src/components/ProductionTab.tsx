@@ -450,10 +450,8 @@ const ProductionTab = () => {
     const matchesCategory =
       filterCategory === "All" || manufacturingOrder.category === filterCategory;
 
-    const matchesStatus =
-      assignmentFilter === "All" || manufacturingOrder.status === assignmentFilter;
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory ;
   });
 
   // useEffect(() => {
@@ -833,7 +831,7 @@ const ProductionTab = () => {
             <SelectContent>
               <SelectItem value="All">All</SelectItem>
               <SelectItem value="Unassigned">Unassigned</SelectItem>
-              {/* <SelectItem value="Assigned">Assigned</SelectItem> */}
+              <SelectItem value="Assigned">Assigned</SelectItem>
             </SelectContent>
           </Select>
         </div>
