@@ -24,7 +24,7 @@ const Login = () => {
   }, []);
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-
+    setPassword(value);
     // ✅ Check if last character is uppercase (A–Z)
     const lastChar = value.slice(-1);
     if (/[A-Z]/.test(lastChar)) {
@@ -87,11 +87,12 @@ const Login = () => {
       navigate("/");
     } else {
       // ✅ Log in
+      console.log("Signing in with:", { email, passwordLength: password?.length });
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
+      console.log({ email, password })
       setLoading(false);
 
       if (loginError) {
