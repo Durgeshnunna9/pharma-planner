@@ -1337,7 +1337,7 @@ const ProductionTab = () => {
                     <p className="text-sm font-bold text-gray-900 ">
                     Batch Number :
                     </p>
-                    <span className="text-sm">{selectedManufacturingOrder.batch_number }</span>
+                    <span className="text-sm">{selectedManufacturingOrder.batch_number || "Unassigned"}</span>
                   </div>
                 )
               }

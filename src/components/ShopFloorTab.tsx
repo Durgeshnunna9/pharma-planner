@@ -167,12 +167,18 @@ const ShopFloorTab = () => {
   useEffect(() => {
     let filtered = shopFloorOrders;
   
-    // ✅ Always hide "Dispatched"
-    filtered = filtered.filter(order => order.status !== "Dispatched");
-  
-    // ✅ Apply multiple status filter (with "All" special handling)
-    if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
-      filtered = filtered.filter(order => statusFilter.includes(order.status));
+    // ✅ Filter logic
+    if (statusFilter.length === 1 && statusFilter.includes("Dispatched")) {
+      // Show only dispatched
+      filtered = filtered.filter(order => order.status === "Dispatched");
+    } else if (!(statusFilter.length === 1 && statusFilter.includes("All"))) {
+      // Show only selected statuses (excluding dispatched unless selected)
+      filtered = filtered.filter(order => 
+        statusFilter.includes(order.status) && order.status !== "Dispatched"
+      );
+    } else {
+      // Default: show all except dispatched
+      filtered = filtered.filter(order => order.status !== "Dispatched");
     }
   
     // ✅ Apply Human/Vet category filter
