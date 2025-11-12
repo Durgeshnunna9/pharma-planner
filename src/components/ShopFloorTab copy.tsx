@@ -1,4 +1,4 @@
-// ShopFloorTab.tsx (full component with stock-edit modal integrated + partial dispatch)
+// ShopFloorTab.tsx (full component with stock-edit modal integrated)
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,7 +40,6 @@ interface ShopFloorOrder {
   notes: Notes[];
   bottles_present: boolean;
   labels_present: boolean;
-  order_note: string;
 }
 
 const ShopFloorTab = () => {
@@ -65,14 +64,6 @@ const ShopFloorTab = () => {
     bottles_present: false,
     labels_present: false,
   });
-
-  // 🆕 Dispatch modal state
-  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
-  const [dispatchOrderId, setDispatchOrderId] = useState<string | null>(null);
-  const [dispatchOrder, setDispatchOrder] = useState<ShopFloorOrder | null>(null);
-  const [dispatchQuantity, setDispatchQuantity] = useState<string>("");
-  const [isProcessingDispatch, setIsProcessingDispatch] = useState(false);
-  const [dispatchedBottles, setDispatchedBottles] = useState<Record<string, number>>({});
 
   const STATUS_FLOW: ShopFloorOrder["status"][] = [
     "InQueue",
@@ -201,273 +192,23 @@ const ShopFloorTab = () => {
     setFilteredOrders(sorted);
   }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds]);
 
-  // 🆕 Open dispatch modal
-  const handleMoveToDispatch = (order: ShopFloorOrder) => {
-    setDispatchOrder(order);
-    setDispatchOrderId(order.order_id);
-    setDispatchQuantity("");
-    setDispatchedBottles({}); // Reset bottle quantities
-    setIsDispatchModalOpen(true);
-  };
-
-  // Helper to check if it's a partial dispatch
-  const isPartialDispatch = () => {
-    if (!dispatchQuantity || !dispatchOrder) return false;
-    const dispatched = parseFloat(dispatchQuantity);
-    return dispatched < dispatchOrder.order_quantity;
-  };
-
-  // 🆕 Handle dispatch submission
-  const handleDispatchSubmit = async () => {
-    if (!dispatchOrder || !dispatchOrderId) return;
-
-    const dispatchedQty = parseFloat(dispatchQuantity);
-    
-    // Validation
-    if (isNaN(dispatchedQty) || dispatchedQty <= 0) {
-      toast({
-        title: "Invalid Quantity",
-        description: "Please enter a valid quantity greater than 0",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (dispatchedQty > dispatchOrder.order_quantity) {
-      toast({
-        title: "Invalid Quantity",
-        description: `Dispatched quantity cannot exceed order quantity (${dispatchOrder.order_quantity}L)`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const isFullDispatch = dispatchedQty === dispatchOrder.order_quantity;
-
-    // Validate bottle quantities for partial dispatch
-    if (!isFullDispatch) {
-      const allPackingSizesEntered = dispatchOrder.packing_groups.every(pg => {
-        const key = `${pg.packing_size}`;
-        return dispatchedBottles[key] !== undefined && dispatchedBottles[key] >= 0;
-      });
-
-      if (!allPackingSizesEntered) {
-        toast({
-          title: "Incomplete Information",
-          description: "Please enter dispatched bottle quantities for all packing sizes",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate that dispatched bottles don't exceed total
-      const invalidPackingSize = dispatchOrder.packing_groups.find(pg => {
-        const key = `${pg.packing_size}`;
-        return dispatchedBottles[key] > pg.no_of_bottles;
-      });
-
-      if (invalidPackingSize) {
-        toast({
-          title: "Invalid Bottle Quantity",
-          description: `Dispatched bottles for ${invalidPackingSize.packing_size} cannot exceed ${invalidPackingSize.no_of_bottles} bottles`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    setIsProcessingDispatch(true);
-
-    try {
-      if (isFullDispatch) {
-        // Full dispatch - just update status
-        const { error } = await supabase
-          .from("manufacturing_orders")
-          .update({ 
-            status: "Dispatched"
-          })
-          .eq("order_id", dispatchOrderId);
-
-        if (error) throw error;
-
-        setShopFloorOrders((orders) =>
-          orders.map((order) =>
-            order.order_id === dispatchOrderId 
-              ? { ...order, status: "Dispatched" } 
-              : order
-          )
-        );
-
-        toast({
-          title: "Order Dispatched",
-          description: `Full order of ${dispatchedQty}L dispatched successfully`,
-        });
-      } else {
-        // Partial dispatch - update current and create new order
-        const remainingQty = dispatchOrder.order_quantity - dispatchedQty;
-
-        // Calculate remaining bottles for each packing size
-        const dispatchedPackingGroups = dispatchOrder.packing_groups.map(pg => ({
-          packing_size: pg.packing_size,
-          no_of_bottles: dispatchedBottles[`${pg.packing_size}`] || 0
-        }));
-
-        const remainingPackingGroups = dispatchOrder.packing_groups
-          .map(pg => {
-            const dispatched = dispatchedBottles[`${pg.packing_size}`] || 0;
-            const remaining = pg.no_of_bottles - dispatched;
-            return {
-              packing_size: pg.packing_size,
-              no_of_bottles: remaining
-            };
-          })
-          .filter(pg => pg.no_of_bottles > 0); // Only include if bottles remain
-
-        // Update current order to dispatched with actual dispatched quantity
-        const { error: updateError } = await supabase
-          .from("manufacturing_orders")
-          .update({ 
-            status: "Dispatched",
-            order_quantity: dispatchedQty
-          })
-          .eq("order_id", dispatchOrderId);
-
-        if (updateError) throw updateError;
-
-        // Update packing groups for dispatched order
-        await supabase
-          .from("packing_groups")
-          .delete()
-          .eq("manufacturing_order_id", dispatchOrderId);
-
-        if (dispatchedPackingGroups.length > 0) {
-          const dispatchedPackingData = dispatchedPackingGroups.map(pg => ({
-            manufacturing_order_id: dispatchOrderId,
-            packing_size: pg.packing_size,
-            no_of_bottles: pg.no_of_bottles
-          }));
-
-          await supabase
-            .from("packing_groups")
-            .insert(dispatchedPackingData);
-        }
-
-        // Create new order with remaining quantity
-        const newOrderData = {
-          product_name: dispatchOrder.product_name,
-          product_description: dispatchOrder.product_description,
-          brand_name: dispatchOrder.brand_name,
-          company_name: dispatchOrder.company_name,
-          batch_number: dispatchOrder.batch_number,
-          status: "InQueue",
-          expected_delivery_date: null,
-          manufacturing_date: null,
-          expiry_date: null,
-          category: dispatchOrder.category,
-          order_quantity: remainingQty,
-          bottles_present: false,
-          labels_present: false,
-        };
-
-        const { data: newOrder, error: insertError } = await supabase
-          .from("manufacturing_orders")
-          .insert(newOrderData)
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        // Add packing groups for new order
-        if (remainingPackingGroups.length > 0) {
-          const packingGroupsData = remainingPackingGroups.map(pg => ({
-            manufacturing_order_id: newOrder.order_id,
-            packing_size: pg.packing_size,
-            no_of_bottles: pg.no_of_bottles
-          }));
-
-          const { error: packingError } = await supabase
-            .from("packing_groups")
-            .insert(packingGroupsData);
-
-          if (packingError) throw packingError;
-        }
-
-        // Update local state
-        setShopFloorOrders((orders) => [
-          ...orders.map((order) =>
-            order.order_id === dispatchOrderId 
-              ? { 
-                  ...order, 
-                  status: "Dispatched" as const, 
-                  order_quantity: dispatchedQty,
-                  packing_groups: dispatchedPackingGroups.map((pg, idx) => ({
-                    id: order.packing_groups[idx]?.id || `temp-${idx}`,
-                    ...pg
-                  }))
-                } 
-              : order
-          ),
-          {
-            ...newOrder,
-            packing_groups: remainingPackingGroups.map((pg, idx) => ({
-              id: `temp-${idx}`,
-              ...pg
-            })),
-            notes: []
-          }
-        ]);
-
-        toast({
-          title: "Partial Dispatch Complete",
-          description: `${dispatchedQty}L dispatched. New order created for remaining ${remainingQty}L`,
-        });
-      }
-
-      // Close modal and reset
-      setIsDispatchModalOpen(false);
-      setDispatchOrderId(null);
-      setDispatchOrder(null);
-      setDispatchQuantity("");
-      setDispatchedBottles({});
-    } catch (error) {
-      console.error("Error processing dispatch:", error);
-      toast({
-        title: "Dispatch Failed",
-        description: error instanceof Error ? error.message : "Could not process dispatch. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingDispatch(false);
-    }
-  };
-
-  // 🆕 Cancel dispatch modal
-  const handleCancelDispatch = () => {
-    setIsDispatchModalOpen(false);
-    setDispatchOrderId(null);
-    setDispatchOrder(null);
-    setDispatchQuantity("");
-    setDispatchedBottles({});
-  };
-
-  // Update status in DB - 🔄 Modified to intercept "Ready to Dispatch" → "Dispatched"
+  // Update status in DB
   const updateOrderStatus = async (orderId: string, newStatus: ShopFloorOrder["status"]) => {
-    // 🆕 Intercept move to dispatch
-    if (newStatus === "Dispatched") {
-      const order = shopFloorOrders.find(o => o.order_id === orderId);
-      if (order && order.status === "Ready to Dispatch") {
-        handleMoveToDispatch(order);
-        return;
-      }
-    }
-
     try {
       const { error } = await supabase
         .from("manufacturing_orders")
         .update({ status: newStatus })
         .eq("order_id", orderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating status:", error);
+        toast({
+          title: "Error",
+          description: "Could not update order status",
+          variant: "destructive"
+        });
+        return;
+      }
 
       // Update local state
       setShopFloorOrders((orders) =>
@@ -484,7 +225,7 @@ const ShopFloorTab = () => {
       console.error("Error updating status:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Could not update order status",
+        description: "Could not update order status",
         variant: "destructive"
       });
     }
@@ -758,128 +499,6 @@ const ShopFloorTab = () => {
           Live production tracking and status updates
         </div>
       </div>
-
-      {/* 🆕 Dispatch Modal */}
-      <Dialog open={isDispatchModalOpen} onOpenChange={handleCancelDispatch}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Dispatch Order</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Order Info */}
-            <div className="space-y-2 pb-4 border-b">
-              <p className="text-sm text-gray-600">
-                Product: <span className="font-semibold">{dispatchOrder?.product_name}</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Batch: <span className="font-semibold">{dispatchOrder?.batch_number}</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Total Order Quantity: <span className="font-semibold">{dispatchOrder?.order_quantity}L</span>
-              </p>
-            </div>
-
-            {/* Order Quantity Input */}
-            <div className="space-y-2">
-              <label htmlFor="dispatch-qty" className="text-sm font-medium">
-                Order Quantity Being Dispatched (Liters) <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="dispatch-qty"
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={dispatchOrder?.order_quantity}
-                value={dispatchQuantity}
-                onChange={(e) => setDispatchQuantity(e.target.value)}
-                placeholder="Enter quantity in liters"
-                className="w-full"
-                autoFocus
-              />
-              {dispatchQuantity && dispatchOrder && parseFloat(dispatchQuantity) < dispatchOrder.order_quantity && (
-                <p className="text-xs text-amber-600">
-                  Remaining: {(dispatchOrder.order_quantity - parseFloat(dispatchQuantity)).toFixed(2)}L will be created as a new order
-                </p>
-              )}
-            </div>
-
-            {/* Bottle Quantities - Only show for partial dispatch */}
-            {isPartialDispatch() && dispatchOrder && (
-              <div className="space-y-3 pt-4 border-t">
-                <p className="text-sm font-medium">Bottle Quantities Being Dispatched</p>
-                <div className="space-y-4">
-                  {dispatchOrder.packing_groups.map((pg, idx) => {
-                    const key = `${pg.packing_size}`;
-                    const dispatched = dispatchedBottles[key] || 0;
-                    const remaining = pg.no_of_bottles - dispatched;
-                    
-                    return (
-                      <div key={idx} className="space-y-2 p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium">
-                            Packing Size: {pg.packing_size}
-                          </label>
-                          <span className="text-xs text-gray-500">
-                            Total: {pg.no_of_bottles} bottles
-                          </span>
-                        </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={pg.no_of_bottles}
-                          value={dispatchedBottles[key] || ""}
-                          onChange={(e) => {
-                            const value = e.target.value === "" ? 0 : parseInt(e.target.value);
-                            setDispatchedBottles(prev => ({
-                              ...prev,
-                              [key]: value
-                            }));
-                          }}
-                          placeholder="Enter bottles dispatched"
-                          className="w-full"
-                        />
-                        {dispatchedBottles[key] !== undefined && (
-                          <p className="text-xs text-gray-600">
-                            <span className="font-medium">Remaining:</span> {remaining} bottles
-                            {remaining < 0 && <span className="text-red-500 ml-2">⚠️ Exceeds total!</span>}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Warning for partial dispatch */}
-            {isPartialDispatch() && (
-              <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
-                <p className="text-xs text-amber-800 font-medium">
-                  ⚠️ Partial Dispatch
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  A new order will be created with the remaining quantity and bottles in "InQueue" status
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={handleCancelDispatch}
-              disabled={isProcessingDispatch}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDispatchSubmit}
-              disabled={isProcessingDispatch || !dispatchQuantity || parseFloat(dispatchQuantity) <= 0}
-            >
-              {isProcessingDispatch ? "Processing..." : "Confirm Dispatch"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">

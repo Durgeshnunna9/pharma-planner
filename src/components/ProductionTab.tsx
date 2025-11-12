@@ -34,6 +34,7 @@ interface ManufacturingOrder {
   status: "Unassigned" | "InQueue" | "Under Production" | "Filling" | "Labelling" | "Packing" | "Ready to Dispatch" | "Dispatched";
   bottles_present: boolean;
   labels_present: boolean;
+  order_note: string;
 }
 
 const ProductionTab = () => {
@@ -60,17 +61,19 @@ const ProductionTab = () => {
     status: "Unassigned",
     bottles_present: false,
     labels_present: false,
+    order_note: ""
 
     
   });
   const [filterCategory, setFilterCategory] = useState<"All" | "Human" | "Veterinary">("All");
   const [assignmentFilter, setAssignmentFilter] = useState<"All" | "Assigned" | "Unassigned">("Unassigned");
+  const [productionCompletionFilter, setProductionCompletionFilter] = useState<"All" | "Completed" | "Incomplete">("Incomplete");
   // For product and customer search
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [batchAssigned, setBatchAssigned] = useState(false);
+  // const [batchAssigned, setBatchAssigned] = useState(false);
   const [batchAssignedMap, setBatchAssignedMap] = useState<{ [orderId: string]: boolean }>({});
   // const [packingSize, setPackingSize] = useState<number>(0); // ml
   // const [bottles, setBottles] = useState<number>(0);
@@ -101,6 +104,7 @@ const ProductionTab = () => {
     status: "Unassigned",
     bottles_present: false,
     labels_present: false,
+    order_note: "",
     
   });
   useEffect(() => {
@@ -188,6 +192,17 @@ const ProductionTab = () => {
     p.sales_description.toLowerCase().includes(productSearch.toLowerCase())
   );
 
+  // Filter orders based on production filter
+  // const filteredCompletionOrders = manufacturingOrders.filter(order => {
+  //   if (productionCompletionFilter === "Completed") {
+  //     return order.status === "Dispatched";
+  //   }
+  //   if (productionCompletionFilter === "Incomplete") {
+  //     return order.status !== "Dispatched";
+  //   }
+  //   return true; // "all" - show everything
+  // });
+
   const filteredCustomers = customers.filter((c) => {
     const companyName = (c.company_name ?? "").toLowerCase();
     const customerId = c.customer_id ? c.customer_id.toString().toLowerCase() : "";
@@ -255,10 +270,7 @@ const ProductionTab = () => {
   };
 
   // Get the current calculated total
-  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups );
-  // const currentEditTotalLiters = calculateTotalLiters(editForm.packing_groups);
-
-  
+  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups );  
 
   // Update order quantity whenever packing groups change
   useEffect(() => {
@@ -332,6 +344,7 @@ const ProductionTab = () => {
         bottles_present: newManufacturingOrder.bottles_present,
         labels_present: newManufacturingOrder.labels_present,
         batch_number: newManufacturingOrder.batch_number,
+        order_note: newManufacturingOrder.order_note,
         // optionally store other fields like dates or status
       }])
       .select();
@@ -385,7 +398,8 @@ const ProductionTab = () => {
       batch_number: "",
       status: "Unassigned",
       bottles_present: false,
-      labels_present: false
+      labels_present: false,
+      order_note:""
     });
     setShowAddForm(false);
 
@@ -439,20 +453,20 @@ const ProductionTab = () => {
   // };
   
   // Filtering orders by category and search term
-  const filteredManufacturingOrder = manufacturingOrders.filter(manufacturingOrder => {
-    const search = manufacturingOrderSearch.toLowerCase();
+  // const filteredManufacturingOrder = manufacturingOrders.filter(manufacturingOrder => {
+  //   const search = manufacturingOrderSearch.toLowerCase();
   
-    const matchesSearch =
-      (manufacturingOrder.product_name ?? "").toLowerCase().includes(search) ||
-      (manufacturingOrder.company_name ?? "").toLowerCase().includes(search) ||
-      (manufacturingOrder.brand_name ?? "").toLowerCase().includes(search);
+  //   const matchesSearch =
+  //     (manufacturingOrder.product_name ?? "").toLowerCase().includes(search) ||
+  //     (manufacturingOrder.company_name ?? "").toLowerCase().includes(search) ||
+  //     (manufacturingOrder.brand_name ?? "").toLowerCase().includes(search);
   
-    const matchesCategory =
-      filterCategory === "All" || manufacturingOrder.category === filterCategory;
+  //   const matchesCategory =
+  //     filterCategory === "All" || manufacturingOrder.category === filterCategory;
 
 
-    return matchesSearch && matchesCategory ;
-  });
+  //   return matchesSearch && matchesCategory ;
+  // });
 
   // useEffect(() => {
   //   if (!isOpen) {
@@ -509,62 +523,54 @@ const ProductionTab = () => {
     }
   };
   
-  // Save edits from modal (including batch_number, packing_groups etc)
-  // const saveOrderEdits = () => {
-  //   if (!selectedManufacturingOrder) return;
-  //   setManufacturingOrders(prev =>
-  //     prev.map(o => o.order_id === selectedManufacturingOrder.order_id ? selectedManufacturingOrder : o)
-  //   );
-  //   setSelectedManufacturingOrder(null);
-  //   toast({ title: "Success", description: "Order updated successfully." });
-  // };
   
-  // const BooleanField = ({ label, value, onChange, isEditing }) => (
-  //   <div className="flex items-center gap-3">
-  //     <span className="font-medium">{label}:</span>
-  
-  //     {isEditing ? (
-  //       <button
-  //         type="button"
-  //         onClick={() => onChange(!value)}
-  //         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-  //           value ? "bg-green-500" : "bg-gray-300"
-  //         }`}
-  //       >
-  //         <span
-  //           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-  //             value ? "translate-x-6" : "translate-x-1"
-  //           }`}
-  //         />
-  //       </button>
-  //     ) : (
-  //       <span
-  //         className={`px-3 py-1 rounded-full text-sm font-medium ${
-  //           value ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-  //         }`}
-  //       >
-  //         {value ? "Present" : "Not Present"}
-  //       </span>
-  //     )}
-  //   </div>
+  const filteredManufacturingOrders = manufacturingOrders
+  .filter(order => {
+    // 1. Completion Filter (Completed/Incomplete)
+    if (productionCompletionFilter === "Completed") {
+      if (order.status !== "Dispatched") return false;
+    }
+    if (productionCompletionFilter === "Incomplete") {
+      if (order.status === "Dispatched") return false;
+    }
+
+    // 2. Search Filter (product name, company name, brand name)
+    const search = manufacturingOrderSearch.toLowerCase();
+    const matchesSearch =
+      (order.product_name ?? "").toLowerCase().includes(search) ||
+      (order.company_name ?? "").toLowerCase().includes(search) ||
+      (order.brand_name ?? "").toLowerCase().includes(search);
+    
+    if (!matchesSearch) return false;
+
+    // 3. Category Filter
+    const matchesCategory =
+      filterCategory === "All" || order.category === filterCategory;
+    
+    if (!matchesCategory) return false;
+
+    // 4. Assignment Filter
+    const isAssigned = batchAssignedMap[order.order_id] || false;
+    if (assignmentFilter === "Assigned" && !isAssigned) return false;
+    if (assignmentFilter === "Unassigned" && isAssigned) return false;
+
+    return true;
+  })
+  .sort((a, b) => Number(b.order_id) - Number(a.order_id)); // Sort by order_id descending
+
+  // const sortedOrders = [...filteredManufacturingOrder].sort(
+  //   (a, b) => Number(b.order_id) - Number(a.order_id)
   // );
 
-  const sortedOrders = [...filteredManufacturingOrder].sort(
-    (a, b) => Number(b.order_id) - Number(a.order_id)
-  );
-
-  // const assignedOrders = sortedOrders.filter(order => order.batch_number !== null && order.status !== "Unassigned");
-  // const unassignedOrders = sortedOrders.filter(order => order.batch_number === null || order.status === "Unassigned");
-
-  const filteredOrdersByAssignment = sortedOrders.filter(order => {
-    const isAssigned = batchAssignedMap[order.order_id] || false;
   
-    if (assignmentFilter === "Assigned") return isAssigned;
-    if (assignmentFilter === "Unassigned") return !isAssigned;
-    return true;
-  });
+  // const filteredOrdersByAssignment = sortedOrders.filter(order => {
+  //   const isAssigned = batchAssignedMap[order.order_id] || false;
   
-
+  //   if (assignmentFilter === "Assigned") return isAssigned;
+  //   if (assignmentFilter === "Unassigned") return !isAssigned;
+  //   return true;
+  // });
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -742,8 +748,18 @@ const ProductionTab = () => {
               <Button onClick={addPackingGroup} variant="ghost" className="mt-1">
                 + Add packing group
               </Button>
+            </div>
+
+            <div>
+              <p className="text-sm">Add Notes for This Order.</p>
+              <Textarea
+                id="order-note"
+                placeholder="Add a Remark..."
+                value={newManufacturingOrder.order_note}
+                onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, order_note: e.target.value })}
+                className="text-s min-h-[60px]"
+              />
             </div> 
-            
 
             <div className="flex gap-3">
               <Button onClick={() => 
@@ -763,7 +779,8 @@ const ProductionTab = () => {
                   brand_name: "",
                   company_name: "",
                   bottles_present: false,
-                  labels_present: false
+                  labels_present: false,
+                  order_note: "",
                 });
                 setProductSearch("");       // ✅ clear input text
                 setCustomerSearch(""); }} 
@@ -791,7 +808,8 @@ const ProductionTab = () => {
                     brand_name: "",
                     company_name: "",
                     bottles_present: false,
-                    labels_present: false
+                    labels_present: false,
+                    order_note: "",
                   });
                   setProductSearch("");       // ✅ clear input text
                   setCustomerSearch("");      // ✅ clear customer input
@@ -805,10 +823,10 @@ const ProductionTab = () => {
       )}
 
       {/*Filters*/}
-      <div className="grid grid-cols-6">
+      <div className="grid grid-cols-7">
         {/* Category Filter Dropdown */}
-        <div className=" w-48">
-          {/* <Label htmlFor="categoryFilter" className="mb-2">Filter by Category</Label> */}
+        <div className=" w-40">
+          <Label htmlFor="categoryFilter" className="mb-2">Filter by Category</Label>
           <Select value={filterCategory} onValueChange={(val) => setFilterCategory(val as any)}>
             <SelectTrigger id="categoryFilter">
               <SelectValue />
@@ -822,8 +840,8 @@ const ProductionTab = () => {
         </div>
 
         {/* Filter of assignment */}
-        <div className=" w-48">
-          {/* <Label htmlFor="categoryFilter" >Filter by Status</Label> */}
+        <div className=" w-40">
+          <Label htmlFor="categoryFilter" >Filter by Assignment</Label>
           <Select value={assignmentFilter} onValueChange={(val) => setAssignmentFilter(val as any)}>
             <SelectTrigger id="categoryFilter">
               <SelectValue />
@@ -835,79 +853,105 @@ const ProductionTab = () => {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Production Filter */}
+        <div className=" w-40">
+          <Label htmlFor="categoryFilter" >Filter by Completion </Label>
+          <Select value={productionCompletionFilter} onValueChange={(val) => setProductionCompletionFilter(val as any)}>
+            <SelectTrigger id="categoryFilter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All</SelectItem>
+              <SelectItem value="Incomplete">Incomplete</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
         {/* Search input */}
         <div className="relative  col-span-4">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+        <Label htmlFor="orderSearch" >Search the Orders </Label>
+          <Search className="absolute left-3 top-10 w-4 h-4 text-gray-400" />
           <Input
             placeholder="Search by product, brand, company "
             value={manufacturingOrderSearch}
             onChange={e => setManufacturingOrderSearch(e.target.value)}
             className="pl-8"
+            id="orderSearch"
           />
         </div>
       </div>
       
       {/* Orders List */}
       <div className="grid gap-4 ">
-        {filteredOrdersByAssignment.length === 0 ? (
+        <div>
+          <h2 className="text-xl font-bold">
+            Total: {filteredManufacturingOrders.length} Orders 
+          </h2>
+        </div>
+        {filteredManufacturingOrders.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-gray-500">No manufacturing orders found.</p>
           </Card>
         ) : (
-          filteredOrdersByAssignment.map((manufacturingOrder) => (
-            <Card 
-              key={manufacturingOrder.order_id} 
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleManufacturingOrderClick(manufacturingOrder)}
-            >
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="mt-3 mr-3 p-2 bg-gray-100 rounded-xl">
-                    <Package className="w-7 h-8"/>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
-                    <p className="text-gray-600 mt-1">
-                      <span className="font-bold text-gray-700">Brand: </span>{manufacturingOrder.brand_name} | <span className="font-bold text-gray-700">Company: </span> {manufacturingOrder.company_name}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <span className="px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
-                        Batch: {manufacturingOrder.batch_number ?? "Unassigned"}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        manufacturingOrder.category === "Human" 
-                          ? "bg-blue-100 text-blue-800" 
-                          : "bg-amber-100 text-amber-800"
-                      }`}>
-                        {manufacturingOrder.category}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(manufacturingOrder.status)}`}>
-                        {manufacturingOrder.status}
-                      </span>
-                      <span>
-                      <p className="text-right text-xs text-cyan-800 space-y-1 bg-cyan-100 rounded-full px-2 py-1" ><span className="">Delivery Date:</span> {manufacturingOrder.expected_delivery_date || "N.A"}</p>
-                      </span>
+          filteredManufacturingOrders.map((manufacturingOrder) => (
+            <>
+              <Card 
+                key={manufacturingOrder.order_id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleManufacturingOrderClick(manufacturingOrder)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="mt-3 mr-3 p-2 bg-gray-100 rounded-xl">
+                      <Package className="w-7 h-8"/>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900">{manufacturingOrder.product_name}</h3>
+                      <p className="text-gray-600 mt-1">
+                        <span className="font-bold text-gray-700">Brand: </span>{manufacturingOrder.brand_name} | <span className="font-bold text-gray-700">Company: </span> {manufacturingOrder.company_name}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <span className="px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
+                          Batch: {manufacturingOrder.batch_number ?? "Unassigned"}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          manufacturingOrder.category === "Human" 
+                            ? "bg-blue-100 text-blue-800" 
+                            : "bg-amber-100 text-amber-800"
+                        }`}>
+                          {manufacturingOrder.category}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(manufacturingOrder.status)}`}>
+                          {manufacturingOrder.status}
+                        </span>
+                        <span>
+                          <p className="text-right text-xs text-cyan-800 space-y-1 bg-cyan-100 rounded-full px-2 py-1" ><span className="">Delivery Date:</span> {manufacturingOrder.expected_delivery_date || "N.A"}</p>
+                        </span>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">Remark: {manufacturingOrder.order_note}</span>
+                      </div>
+                    </div>
+                    <div key={manufacturingOrder.order_id} className="text-right text-sm text-gray-500 space-y-1 text-center">
+                      <p className="bg-pink-100 text-pink-900 rounded-full px-2 py-1">
+                        Quantity: {manufacturingOrder.order_quantity || "0"}L
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {Array.isArray(manufacturingOrder.packing_groups) &&
+                          manufacturingOrder.packing_groups.map((group, index) => (
+                            <span
+                              key={index}
+                              className="py-1 bg-green-100 text-green-700 rounded-full text-xs text-center"
+                            >
+                              {group.packing_size || "N/A"} : {group.no_of_bottles || 0}
+                            </span>
+                          ))}
+                      </div>
                     </div>
                   </div>
-                  <div key={manufacturingOrder.order_id} className="text-right text-sm text-gray-500 space-y-1 text-center">
-                    <p className="bg-pink-100 text-pink-900 rounded-full px-2 py-1">
-                      Quantity: {manufacturingOrder.order_quantity || "0"}L
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {Array.isArray(manufacturingOrder.packing_groups) &&
-                        manufacturingOrder.packing_groups.map((group, index) => (
-                          <span
-                            key={index}
-                            className="py-1 bg-green-100 text-green-700 rounded-full text-xs text-center"
-                          >
-                            {group.packing_size || "N/A"} : {group.no_of_bottles || 0}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </>
           ))
         )}
       </div>
@@ -932,7 +976,8 @@ const ProductionTab = () => {
               batch_number: selectedManufacturingOrder.batch_number,
               status: selectedManufacturingOrder.status,
               bottles_present: selectedManufacturingOrder.bottles_present,
-              labels_present: selectedManufacturingOrder.labels_present
+              labels_present: selectedManufacturingOrder.labels_present,
+              order_note: selectedManufacturingOrder.order_note
             });
           }
         }}>
@@ -1177,74 +1222,74 @@ const ProductionTab = () => {
               )}
 
               {/* Bottles Present */}
-<div className="flex items-center gap-3">
-  <label className="text-sm font-bold text-gray-900">
-    Bottles: 
-  </label>
-  {isEditing ? (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => {
-          const newValue = !editForm.bottles_present;
-          console.log("🔴 Toggling bottles_present from", editForm.bottles_present, "to", newValue);
-          setEditForm({ ...editForm, bottles_present: newValue });
-        }}
-        className={`w-12 h-6 flex items-center rounded-full transition-colors ${
-          editForm.bottles_present ? "bg-green-500" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-            editForm.bottles_present ? "translate-x-6" : "translate-x-0"
-          }`}
-        ></span>
-      </button>
-      <span className="text-xs text-gray-600">
-        {editForm.bottles_present ? "In Stock" : "Out of Stock"}
-      </span>
-    </div>
-  ) : (
-    <span className="text-sm text-gray-700">
-      {selectedManufacturingOrder.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}
-    </span>
-  )}
-</div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-bold text-gray-900">
+                  Bottles: 
+                </label>
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = !editForm.bottles_present;
+                        console.log("🔴 Toggling bottles_present from", editForm.bottles_present, "to", newValue);
+                        setEditForm({ ...editForm, bottles_present: newValue });
+                      }}
+                      className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+                        editForm.bottles_present ? "bg-green-500" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                          editForm.bottles_present ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      ></span>
+                    </button>
+                    <span className="text-xs text-gray-600">
+                      {editForm.bottles_present ? "In Stock" : "Out of Stock"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-700">
+                    {selectedManufacturingOrder.bottles_present ? "In Stock ✅" : "Out of Stock ❌"}
+                  </span>
+                )}
+              </div>
 
-{/* Labels Present */}
-<div className="flex items-center gap-3">
-  <label className="text-sm font-bold text-gray-900">
-    Labels: 
-  </label>
-  {isEditing ? (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => {
-          const newValue = !editForm.labels_present;
-          console.log("🔵 Toggling labels_present from", editForm.labels_present, "to", newValue);
-          setEditForm({ ...editForm, labels_present: newValue });
-        }}
-        className={`w-12 h-6 flex items-center rounded-full transition-colors ${
-          editForm.labels_present ? "bg-green-500" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-            editForm.labels_present ? "translate-x-6" : "translate-x-0"
-          }`}
-        ></span>
-      </button>
-      <span className="text-xs text-gray-600">
-        {editForm.labels_present ? "In Stock" : "Out of Stock"}
-      </span>
-    </div>
-  ) : (
-    <span className="text-sm text-gray-700">
-      {selectedManufacturingOrder.labels_present ? "In Stock ✅" : "Out of Stock ❌"}
-    </span>
-  )}
-</div>
+              {/* Labels Present */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-bold text-gray-900">
+                  Labels: 
+                </label>
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = !editForm.labels_present;
+                        console.log("🔵 Toggling labels_present from", editForm.labels_present, "to", newValue);
+                        setEditForm({ ...editForm, labels_present: newValue });
+                      }}
+                      className={`w-12 h-6 flex items-center rounded-full transition-colors ${
+                        editForm.labels_present ? "bg-green-500" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                          editForm.labels_present ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      ></span>
+                    </button>
+                    <span className="text-xs text-gray-600">
+                      {editForm.labels_present ? "In Stock" : "Out of Stock"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-700">
+                    {selectedManufacturingOrder.labels_present ? "In Stock ✅" : "Out of Stock ❌"}
+                  </span>
+                )}
+              </div>
               
               {/* Manufacturing Order Brand Name */}
               <div>
@@ -1266,6 +1311,29 @@ const ProductionTab = () => {
                     <span className="text-sm">{selectedManufacturingOrder.brand_name}</span>
                   </div>
                 )}
+              </div>
+
+              {/*Manufacturing Order Notes */}
+              <div>
+                {isEditing ? 
+                  (
+                    <div className="flex flex-col">
+                      <label className="text-sm font-bold text-gray-900 mb-1">
+                        Order Remark : 
+                      </label>
+                      <Input
+                        value={editForm.order_note ?? ""}
+                        onChange={e => setEditForm({ ...editForm, order_note: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2 text-gray-700 leading-relaxed">
+                      <h3 className="text-sm font-bold text-gray-900">
+                      Order Remark :
+                      </h3>
+                      <span className="text-sm">{selectedManufacturingOrder.order_note}</span>
+                    </div>
+                  )}
               </div>
 
               {/* Dates */}
@@ -1382,7 +1450,8 @@ const ProductionTab = () => {
                               ? "InQueue"
                               : selectedManufacturingOrder.status,
                             bottles_present: editForm.bottles_present,  // ✅ Using editForm
-                            labels_present: editForm.labels_present,    // ✅ Using editForm
+                            labels_present: editForm.labels_present,
+                            order_note: editForm.order_note,    // ✅ Using editForm
                           })
                           .eq('order_id', selectedManufacturingOrder.order_id);
 
@@ -1476,7 +1545,7 @@ const ProductionTab = () => {
                           batch_number: selectedManufacturingOrder.batch_number,
                           bottles_present: selectedManufacturingOrder.bottles_present,
                           labels_present: selectedManufacturingOrder.labels_present,
-                          
+                          order_note: selectedManufacturingOrder.order_note,
                         });
                       }}
                     >
@@ -1489,10 +1558,8 @@ const ProductionTab = () => {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        console.log("🟢 Initializing editForm with:", {
-                          bottles_present: selectedManufacturingOrder.bottles_present,
-                          labels_present: selectedManufacturingOrder.labels_present,
-                        });
+                        console.log("🟢 order_note value:", selectedManufacturingOrder.order_note);
+                        console.log("🟢 Full order:", selectedManufacturingOrder);
                         
                         setEditForm({
                           order_id: selectedManufacturingOrder.order_id,
@@ -1506,7 +1573,8 @@ const ProductionTab = () => {
                           status: selectedManufacturingOrder.status,
                           batch_number: selectedManufacturingOrder.batch_number,
                           bottles_present: Boolean(selectedManufacturingOrder.bottles_present), // ✅ Explicit conversion
-                          labels_present: Boolean(selectedManufacturingOrder.labels_present),   // ✅ Explicit conversion
+                          labels_present: Boolean(selectedManufacturingOrder.labels_present), // ✅ Explicit conversion
+                          order_note: selectedManufacturingOrder.order_note,  
                         });
                         setIsEditing(true);
                       }}
