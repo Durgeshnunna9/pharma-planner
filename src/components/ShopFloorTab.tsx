@@ -12,6 +12,7 @@ import { supabase } from "../supabaseClient";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Switch } from "@radix-ui/react-switch";
+import { Label } from "recharts";
 
 interface Notes {
   content: string;
@@ -41,6 +42,8 @@ interface ShopFloorOrder {
   bottles_present: boolean;
   labels_present: boolean;
   order_note: string;
+  manufacturing_code: string;
+  order_created_at: string;
 }
 
 const ShopFloorTab = () => {
@@ -55,6 +58,7 @@ const ShopFloorTab = () => {
   const { toast } = useToast();
   const [priorityOrderIds, setPriorityOrderIds] = useState<Set<string>>(new Set());
   const [priorityFirst, setPriorityFirst] = useState<boolean>(true || false);
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "last_6_months" | "last_year">("all");
 
   // Modal & edit state for bottles/labels
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -132,6 +136,67 @@ const ShopFloorTab = () => {
     fetchOrders();
   }, [toast]);
 
+  // Helper function to check if a date matches the selected filter
+  const isDateInRange = (dateString: string | null, filter: typeof dateFilter): boolean => {
+    if (!dateString || filter === "all") return true;
+    
+    const date = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+    
+    const startOfLastWeek = new Date(startOfWeek);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    
+    const endOfLastWeek = new Date(startOfWeek);
+    endOfLastWeek.setDate(endOfLastWeek.getDate() - 1);
+    
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    
+    switch (filter) {
+      case "today":
+        return date >= today;
+        
+      case "yesterday":
+        return date >= yesterday && date < today;
+        
+      case "this_week":
+        return date >= startOfWeek;
+        
+      case "last_week":
+        return date >= startOfLastWeek && date <= endOfLastWeek;
+        
+      case "this_month":
+        return date >= startOfMonth;
+        
+      case "last_month":
+        return date >= startOfLastMonth && date <= endOfLastMonth;
+        
+      case "last_6_months":
+        return date >= sixMonthsAgo;
+        
+      case "last_year":
+        return date >= oneYearAgo;
+        
+      default:
+        return true;
+    }
+  };
+
   // Overdue alert when screen loads or data updates
   useEffect(() => {
     if (isLoading) return;
@@ -155,8 +220,8 @@ const ShopFloorTab = () => {
 
   useEffect(() => {
     let filtered = shopFloorOrders;
-
-    // ✅ Filter logic
+  
+    // ✅ 1. Status Filter
     if (statusFilter.length === 1 && statusFilter.includes("Dispatched")) {
       // Show only dispatched
       filtered = filtered.filter(order => order.status === "Dispatched");
@@ -169,13 +234,13 @@ const ShopFloorTab = () => {
       // Default: show all except dispatched
       filtered = filtered.filter(order => order.status !== "Dispatched");
     }
-
-    // ✅ Apply Human/Vet category filter
+  
+    // ✅ 2. Category Filter (Human/Veterinary)
     if (categoryFilter !== "All") {
       filtered = filtered.filter(order => order.category === categoryFilter);
     }
-
-    // ✅ Apply search filter
+  
+    // ✅ 3. Search Filter
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(order =>
@@ -185,21 +250,35 @@ const ShopFloorTab = () => {
         order.company_name?.toLowerCase().includes(lowerSearch)
       );
     }
-
-    // ✅ Sort by priority first, then delivery date
+  
+    // ✅ 4. Date Filter (NEW - moved inside useEffect)
+    filtered = filtered.filter(order => {
+      // Choose which date field to filter by
+      // Options: order.order_created_at, order.expected_delivery_date, order.manufacturing_date
+      return isDateInRange(order.order_created_at, dateFilter);
+    });
+  
+    // ✅ 5. Sort by priority first, then delivery date
     const sorted = [...filtered].sort((a, b) => {
+      // Priority sort
       if (priorityFirst) {
         const ap = priorityOrderIds.has(a.order_id) ? 1 : 0;
         const bp = priorityOrderIds.has(b.order_id) ? 1 : 0;
         if (ap !== bp) return bp - ap;
       }
-      const ad = a.expected_delivery_date ? new Date(a.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
-      const bd = b.expected_delivery_date ? new Date(b.expected_delivery_date).getTime() : Number.POSITIVE_INFINITY;
+      
+      // Delivery date sort (ascending - earliest first)
+      const ad = a.expected_delivery_date 
+        ? new Date(a.expected_delivery_date).getTime() 
+        : Number.POSITIVE_INFINITY;
+      const bd = b.expected_delivery_date 
+        ? new Date(b.expected_delivery_date).getTime() 
+        : Number.POSITIVE_INFINITY;
       return ad - bd;
     });
-
+  
     setFilteredOrders(sorted);
-  }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds]);
+  }, [shopFloorOrders, searchTerm, statusFilter, categoryFilter, priorityFirst, priorityOrderIds, dateFilter]); // ✅ Added dateFilter to dependencies
 
   // 🆕 Open dispatch modal
   const handleMoveToDispatch = (order: ShopFloorOrder) => {
@@ -595,7 +674,7 @@ const ShopFloorTab = () => {
     return shopFloorOrders.filter(order => order.status === status).length;
   };
 
-  const totalOrders = shopFloorOrders.length;
+  const totalOrders = shopFloorOrders.filter(order => order.status !== "Unassigned").length;
 
   // Handle delete note
   const handleDeleteNote = async (noteId: string, orderId: string) => {
@@ -919,6 +998,26 @@ const ShopFloorTab = () => {
           </Select>
         </div>
 
+        {/* Date Filter */}
+        <div className="w-48">
+          <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as any)}>
+            <SelectTrigger id="dateFilter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="yesterday">Yesterday</SelectItem>
+              <SelectItem value="this_week">This Week</SelectItem>
+              <SelectItem value="last_week">Last Week</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+              <SelectItem value="last_6_months">Last 6 Months</SelectItem>
+              <SelectItem value="last_year">Last Year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Human/Vet Filter */}
         <div className="flex items-center gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -1041,10 +1140,17 @@ const ShopFloorTab = () => {
                         </Badge>
                       </div>
                     </div>
-                    <div >
-                      <Badge variant="outline" className={`"text-xs" ${order.category === "Human" ? "bg-blue-100" : "bg-green-100"}`}>
-                        {order.batch_number}
-                      </Badge>
+                    <div className="flex flex-col">
+                      <div >
+                        <Badge variant="outline" className={`"text-xs" ${order.category === "Human" ? "bg-blue-100" : "bg-green-100"}`}>
+                          {order.batch_number}
+                        </Badge>
+                      </div>
+                      <div >
+                        <Badge variant="outline" className={`"text-xs"`}>
+                          {order.manufacturing_code}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
 
@@ -1117,6 +1223,17 @@ const ShopFloorTab = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                  {/*Remarks for Orders*/}
+                  <div>
+                    {order.order_note ? 
+                    (
+                      <div className="p-2 border-red-600 border-2">
+                        <p className="text-xs text-gray-600 "><span className="text-sm font-bold text-black"> ‼️Remarks: </span> {order.order_note}</p>
+                      </div>
+                    ) : (
+                      <div></div>
+                    )}
                   </div>
                   {/* Current Status Badge */}
                   <div className="flex justify-center">

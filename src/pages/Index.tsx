@@ -13,12 +13,15 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Component,
+  FileSpreadsheet
 } from "lucide-react";
 import ProductsTab from "@/components/ProductsTab";
 import CustomersTab from "@/components/CustomersTab";
 import ProductionTab from "@/components/ProductionTab";
 import ShopFloorTab from "@/components/ShopFloorTab";
 import DashboardTab from "@/components/DashboardTab";
+import CostConfigTab from "@/components/CostConfigTab"
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
@@ -73,6 +76,7 @@ const Index = () => {
     { id: "customers", label: "Customers", icon: Smile, component: CustomersTab, roles: ["admin", "production", "manager", "qc","store"] },
     { id: "production", label: "Production", icon: Factory, component: ProductionTab, roles: ["admin", "production", "manager", "qc", "store"] },
     { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin", "production", "manager", "qc", "store"] },
+    { id: "costConfig", label: "Cost Configarator", icon: FileSpreadsheet , component: CostConfigTab, roles: ["admin", "production", "manager", "qc", "store"] }
   ];
 
   const visibleTabs = tabs.filter((tab) => tab.roles.includes(profile?.role));
