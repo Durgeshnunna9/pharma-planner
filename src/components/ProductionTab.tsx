@@ -134,31 +134,38 @@ const ProductionTab = () => {
     return d.toLocaleString("en-US", { month: "short", year: "numeric" });
   };
 
+  const formatPackingGroups = (groups) => {
+    if (!Array.isArray(groups)) return [];
+  
+    return groups.map(g => ({
+      [g.packing_size]: g.no_of_bottles
+    }));
+  };
+
   const handleExport = () => {
     try {
-      if (!manufacturingOrders || manufacturingOrders.length === 0) {
+      if (!filteredManufacturingOrders || filteredManufacturingOrders.length === 0) {
         alert("No records to export");
         return;
       }
   
       // Convert manufacturing orders into a clean Excel-ready structure
-      const exportData = manufacturingOrders.map(order => ({
-        OrderID: order.order_id,
-        Product: order.product_name,
+      const exportData = filteredManufacturingOrders.map(order => ({
         ManufacturingCode: order.manufacturing_code || "",
+        Product_Name: order.product_name,        
         Description: order.product_description,
+        Company_Name: order.company_name,
+        Brand_Name: order.brand_name,
         Category: order.category,
-        Company: order.company_name,
-        Brand: order.brand_name,
-        Qty: order.order_quantity,
-        UQC: order.uqc,
-        PackingGroups: JSON.stringify(order.packing_groups || []),
-        BatchNumber: order.batch_number,
+        Batch_Number: order.batch_number,
         Status: order.status,
-        BottlesPresent: order.bottles_present ? "Yes" : "No",
-        LabelsPresent: order.labels_present ? "Yes" : "No",
-        ManufacturingDate: formatMonthYear(order.manufacturing_date),
-        ExpiryDate: formatMonthYear(order.expiry_date),
+        Order_Qty: `${order.order_quantity} ${order.uqc === "BTL" ? "L" : "Kg"}`,
+        UQC: order.uqc,
+        PackingGroups: JSON.stringify(formatPackingGroups(order.packing_groups)),
+        Bottles_Present: order.bottles_present ? "Yes" : "No",
+        Labels_Present: order.labels_present ? "Yes" : "No",
+        Manufacturing_Date: formatMonthYear(order.manufacturing_date),
+        Expiry_Date: formatMonthYear(order.expiry_date),
         CreatedAt: order.order_created_at,
       }));
   
@@ -615,33 +622,32 @@ const ProductionTab = () => {
       const { data, error } = await supabase
         .from("manufacturing_orders_with_packing")
         .select("*");
-  
+    
       if (error) {
-        console.error("Failed to load products", error);
+        console.error("Failed to load orders", error);
         return;
       }
-  
-      // 🧠 Transform orders + ensure consistent status
-      const transformedOrders = (data || []).map((manufacturingOrder) => ({
-        ...manufacturingOrder,
-        status: manufacturingOrder.status || "Unassigned",
-        bottles_present: Boolean(manufacturingOrder.bottles_present), // ✅ Explicit conversion
-        labels_present: Boolean(manufacturingOrder.labels_present),   // ✅ Explicit conversion
-      }));
-  
-      // 🟩 Create a map of batchAssigned states
-      const batchMap: { [orderId: string]: boolean } = {};
-      transformedOrders.forEach((order) => {
-        batchMap[order.order_id] = !!order.batch_number; // true if batch_number exists
+    
+      // 🔽 Sort by creation date (newest first)
+      const sorted = [...data].sort((a, b) => {
+        return new Date(b.order_created_at).getTime() - new Date(a.order_created_at).getTime();
       });
-  
-      // 🧱 Set both states
-      setManufacturingOrders(transformedOrders);
+    
+      const transformed = sorted.map(order => ({
+        ...order,
+        status: order.status || "Unassigned",
+        bottles_present: Boolean(order.bottles_present),
+        labels_present: Boolean(order.labels_present),
+      }));
+    
+      const batchMap = {};
+      transformed.forEach(order => {
+        batchMap[order.order_id] = !!order.batch_number;
+      });
+    
+      setManufacturingOrders(transformed);
       setBatchAssignedMap(batchMap);
-  
-      console.log("Orders Loaded:", transformedOrders);
-      console.log("Batch Assigned Map:", batchMap);
-    };
+    };    
   
     loadManufacturingOrders();
     fetchData();
@@ -740,9 +746,16 @@ const ProductionTab = () => {
 
   //=============================================================
 
-  // Handle new manufacturingOrder submission - with Supabase insert
   const handleAddManufacturingOrder = async () => {
-    if (!newManufacturingOrder.product_name || !newManufacturingOrder.brand_name || !newManufacturingOrder.company_name  || !newManufacturingOrder.order_quantity) {
+    // --------------------------
+    // 1️⃣ Required Field Validation
+    // --------------------------
+    if (
+      !newManufacturingOrder.product_name ||
+      !newManufacturingOrder.brand_name ||
+      !newManufacturingOrder.company_name ||
+      !newManufacturingOrder.order_quantity
+    ) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -750,17 +763,17 @@ const ProductionTab = () => {
       });
       return;
     }
-
-    // Validate packing groups (ignore completely empty rows)
+  
+    // --------------------------
+    // 2️⃣ Validate Packing Groups
+    // --------------------------
     for (const group of newManufacturingOrder.packing_groups) {
       const isEmptyRow =
         (!group.packing_size || group.packing_size.trim() === "") &&
         (!group.no_of_bottles || Number(group.no_of_bottles) <= 0);
-
-      // If row is completely empty → skip it
+  
       if (isEmptyRow) continue;
-
-      // But if row is partially filled → error
+  
       if (!group.packing_size || Number(group.no_of_bottles) <= 0) {
         toast({
           title: "Error",
@@ -770,82 +783,116 @@ const ProductionTab = () => {
         return;
       }
     }
-
-
-    // 🟢 Convert month-year fields to valid DATE before insert
-    let manufacturingDate: string | null = null;
-    if (newManufacturingOrder.manufacturing_date) {
-      // assuming manufacturing_date is coming in as "2025-09"
-      manufacturingDate = `${newManufacturingOrder.manufacturing_date}-01`;
-    }
-
-    let expiryDate: string | null = null;
-    if (newManufacturingOrder.expiry_date) {
-      expiryDate = `${newManufacturingOrder.expiry_date}-01`;
-    }
-    const { data: codeData, error: codeError } = await supabase
-    .rpc('generate_manufacturing_code');
-
-  if (codeError) {
-    console.error(codeError);
-    toast({ title: "Error", description: "Failed to generate manufacturing code" });
-    return;
-  }
-
-  const manufacturingCode = codeData;
-
-    // 1️⃣ Insert Manufacturing Order
-    const { data: manufacturingOrderData, error: manufacturingOrderError } = await supabase
-      .from("manufacturing_orders")
-      .insert([{
-        manufacturing_code: manufacturingCode,
-        product_id: newManufacturingOrder.product_id,
-        customer_id: newManufacturingOrder.customer_id,
-        product_name: newManufacturingOrder.product_name,
-        product_description : newManufacturingOrder.product_description,
-        order_quantity: newManufacturingOrder.order_quantity,
-        category: newManufacturingOrder.category,
-        brand_name: newManufacturingOrder.brand_name,
-        company_name: newManufacturingOrder.company_name,
-        manufacturing_date: newManufacturingOrder.manufacturing_date ? `${newManufacturingOrder.manufacturing_date}-01` : null,  // 🟢 use converted date
-        expiry_date: newManufacturingOrder.expiry_date ? `${newManufacturingOrder.expiry_date}-01` : null, // 🟢 use converted date
-        status: newManufacturingOrder.status || "Unassigned",
-        bottles_present: newManufacturingOrder.bottles_present,
-        labels_present: newManufacturingOrder.labels_present,
-        batch_number: newManufacturingOrder.batch_number,
-        order_note: newManufacturingOrder.order_note,
-        order_created_at: new Date().toISOString(),
-        uqc: newManufacturingOrder.uqc 
-        // optionally store other fields like dates or status
-      }])
-      .select();
-
-    if (manufacturingOrderError) {
-      console.error(manufacturingOrderError);
-      toast({ title: "Error", description: "Failed to add Manufacturing Order", variant: "destructive" });
+  
+    // --------------------------
+    // 3️⃣ Generate Manufacturing Code
+    // --------------------------
+    const { data: codeData, error: codeError } = await supabase.rpc(
+      "generate_manufacturing_code"
+    );
+  
+    if (codeError) {
+      console.error(codeError);
+      toast({
+        title: "Error",
+        description: "Failed to generate manufacturing code",
+      });
       return;
     }
-
+  
+    const manufacturingCode = codeData;
+  
+    // --------------------------
+    // 4️⃣ Insert Manufacturing Order
+    // --------------------------
+    const { data: manufacturingOrderData, error: manufacturingOrderError } =
+      await supabase
+        .from("manufacturing_orders")
+        .insert([
+          {
+            manufacturing_code: manufacturingCode,
+            product_id: newManufacturingOrder.product_id,
+            customer_id: newManufacturingOrder.customer_id,
+            product_name: newManufacturingOrder.product_name,
+            product_description: newManufacturingOrder.product_description,
+            order_quantity: newManufacturingOrder.order_quantity,
+            category: newManufacturingOrder.category,
+            brand_name: newManufacturingOrder.brand_name,
+            company_name: newManufacturingOrder.company_name,
+            manufacturing_date: newManufacturingOrder.manufacturing_date
+              ? `${newManufacturingOrder.manufacturing_date}-01`
+              : null,
+            expiry_date: newManufacturingOrder.expiry_date
+              ? `${newManufacturingOrder.expiry_date}-01`
+              : null,
+            status: newManufacturingOrder.status || "Unassigned",
+            bottles_present: newManufacturingOrder.bottles_present,
+            labels_present: newManufacturingOrder.labels_present,
+            batch_number: newManufacturingOrder.batch_number,
+            order_note: newManufacturingOrder.order_note,
+            order_created_at: new Date().toISOString(),
+            uqc: newManufacturingOrder.uqc,
+          },
+        ])
+        .select();
+  
+    if (manufacturingOrderError) {
+      console.error(manufacturingOrderError);
+      toast({
+        title: "Error",
+        description: "Failed to add Manufacturing Order",
+        variant: "destructive",
+      });
+      return;
+    }
+  
     const insertedOrderId = manufacturingOrderData[0].order_id;
-
-    // 2️⃣ Insert packing groups
-    const packingRows = newManufacturingOrder.packing_groups.map(group => ({
-      packing_size: group.packing_size,
-      no_of_bottles: group.no_of_bottles,
-      manufacturing_order_id: insertedOrderId
-    }));
-
+  
+    // --------------------------
+    // 5️⃣ Insert Packing Groups
+    // --------------------------
+    const packingRows = newManufacturingOrder.packing_groups
+      .filter((g) => g.packing_size && g.no_of_bottles > 0)
+      .map((group) => ({
+        packing_size: group.packing_size,
+        no_of_bottles: group.no_of_bottles,
+        manufacturing_order_id: insertedOrderId,
+      }));
+  
     const { error: packingError } = await supabase
       .from("packing_groups")
       .insert(packingRows);
-
+  
     if (packingError) {
       console.error(packingError);
-      toast({ title: "Error", description: "Failed to add packing groups", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to add packing groups",
+        variant: "destructive",
+      });
       return;
     }
+  
+    // 🟢 Update UI instantly — add new order to the top
+    // 6️⃣ Fetch full order (WITH packing groups)
+    const { data: fullOrder, error: fullOrderError } = await supabase
+    .from("manufacturing_orders_with_packing")
+    .select("*")
+    .eq("order_id", insertedOrderId)
+    .single();
 
-    // 4️⃣ Reset form
+    if (fullOrderError) {
+    console.error(fullOrderError);
+    toast({ title: "Error", description: "Failed to refresh new order" });
+    } else {
+    // 🟢 Update UI instantly — now WITH packing groups
+    setManufacturingOrders(prev => [fullOrder, ...prev]);
+    }
+    // setFilteredManufacturingOrders(prev => [manufacturingOrderData[0], ...prev]);
+  
+    // --------------------------
+    // 7️⃣ Reset Form
+    // --------------------------
     setNewManufacturingOrder({
       product_id: "",
       customer_id: "",
@@ -863,18 +910,23 @@ const ProductionTab = () => {
       status: "Unassigned",
       bottles_present: false,
       labels_present: false,
-      order_note:"",
-      order_created_at:"",
+      order_note: "",
+      order_created_at: "",
       manufacturing_code: "",
-      uqc: ""
+      uqc: "",
     });
+  
     setShowAddForm(false);
-
+  
+    // --------------------------
+    // 8️⃣ Toast
+    // --------------------------
     toast({
       title: "Success",
       description: "Manufacturing Order created successfully",
     });
   };
+  
 
   const handleManufacturingOrderClick = (manufacturingOrder: ManufacturingOrder) => {
     setSelectedManufacturingOrder(manufacturingOrder);

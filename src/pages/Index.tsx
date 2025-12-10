@@ -72,7 +72,7 @@ const Index = () => {
   // ✅ Tabs by role
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3, component: DashboardTab, roles: ["admin", "production", "manager", "qc", "store"] },
-    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["admin", "production", "manager", "qc", "store"] },
+    { id: "products", label: "Products", icon: PackageOpen, component: ProductsTab, roles: ["admin", "production", "manager", "qc", "store","user"] },
     { id: "customers", label: "Customers", icon: Smile, component: CustomersTab, roles: ["admin", "production", "manager", "qc","store"] },
     { id: "production", label: "Production", icon: Factory, component: ProductionTab, roles: ["admin", "production", "manager", "qc", "store"] },
     { id: "shopfloor", label: "Shop Floor", icon: Monitor, component: ShopFloorTab, roles: ["admin", "production", "manager", "qc", "store"] },

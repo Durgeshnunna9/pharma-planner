@@ -1,42 +1,92 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Eye, Trash2, Download, Plus, Search } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
+// ============================================
+// TYPESCRIPT INTERFACES
+// ============================================
 
 interface PackingGroup {
   packing_size: string;
   no_of_bottles: number;
 }
 
-interface ManufacturingOrder {
-  product_id: string;
-  customer_id: string;
-  product_name: string;
-  product_description: string;
-  order_quantity: number;
-  packing_groups: PackingGroup[];
-  expected_delivery_date: string;
-  category: "Human" | "Veterinary";
-  manufacturing_date: string;
-  expiry_date: string;
-  batch_number: string;
-  status: string;
-  brand_name: string;
-  company_name: string;
-  bottles_present: boolean;
-  labels_present: boolean;
-  order_note: string;
-  order_created_at: string;
-  manufacturing_code: string;
+// Main Order Table
+interface CostReportOrder {
+  id?: number;
+  created_at?: string;
+  product_id: number | null;
+  customer_id: number | null;
+  customer_name: string | null;
+  product_name: string | null;
+  brand_name: string | null;
 }
 
-interface CostOrder {
-  id: string;
-  productName: string;
-  customerName: string;
-  quantity: number;
-  unitPrice: number;
-  totalCost: number;
-  date: string;
+// Packing Group Details
+interface PackingGroupCostReport {
+  id?: number;
+  created_at?: string;
+  packing_size: string | null;
+  no_of_bottles: number | null;
+  cost_report_id: number;
+}
+
+// Cost Breakdown Table
+interface CostTableData {
+  id?: number;
+  created_at?: string;
+  cost_report_order_id: number;
+  ingridient_name: string | null;
+  quantity: number | null;
+  rate_per_kg: number | null;
+  amount: number | null;
+}
+
+// Support Tables
+interface ActiveElement {
+  id?: number;
+  created_at?: string;
+  raw_material: string | null;
+  raw_material_code: string | null;
+  cost_per_kg: number | null;
+  product_code: string | null;
+  concentration: string | null;
+}
+
+interface InactiveElement {
+  id?: number;
+  created_at?: string;
+  raw_material: string | null;
+  raw_material_code: number | null;
+  cost_per_kg: number | null;
+  quantity?: number | null;
+}
+
+interface ProductionCost {
+  id?: number;
+  created_at?: string;
+  raw_material: string | null;
+  raw_material_code: number | null;
+  cost_per_kg: number | null;
+  quantity?: number | null;
+}
+
+interface PackagingElement {
+  id?: number;
+  created_at?: string;
+  raw_material: string | null;
+  raw_material_code: number | null;
+  cost_per_kg: number | null;
+  quantity?: number | null;
+}
+
+interface BottleSize {
+  id?: number;
+  size_label: string;
+  unit: string;
+  rate: number;
+  notes: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Product {
@@ -52,155 +102,418 @@ interface Customer {
   company_name: string;
 }
 
+// For display in orders list
+interface CostOrderDisplay {
+  id: string;
+  product_name: string;
+  customer_name: string;
+  brand_name: string;
+  quantity: number;
+  total_cost: number;
+  date: string;
+  cost_items?: CostTableData[];
+}
+
+// ============================================
+// CALCULATION HELPER FUNCTIONS
+// ============================================
+
+function calculateTotalLiters(packingGroups: PackingGroup[]): number {
+  return packingGroups.reduce((totalLiters, group) => {
+    const sizeInML = parseFloat(group.packing_size.replace(/[^0-9.]/g, ''));
+    const bottles = Number(group.no_of_bottles);
+    
+    if (isNaN(sizeInML) || isNaN(bottles) || bottles <= 0) {
+      return totalLiters;
+    }
+    
+    const litersForThisGroup = (sizeInML * bottles) / 1000;
+    return totalLiters + litersForThisGroup;
+  }, 0);
+}
+
+function parseConcentration(concentrationString: string): number {
+  if (!concentrationString) return 0;
+
+  const str = concentrationString.toLowerCase().trim();
+
+  const mgPerMlMatch = str.match(/(\d+\.?\d*)mg\/(\d+\.?\d*)ml/);
+  if (mgPerMlMatch) {
+    const mg = parseFloat(mgPerMlMatch[1]);
+    const ml = parseFloat(mgPerMlMatch[2]);
+    return mg / ml;
+  }
+
+  const percentMatch = str.match(/(\d+\.?\d*)%/);
+  if (percentMatch) {
+    return parseFloat(percentMatch[1]);
+  }
+
+  const numberMatch = str.match(/^(\d+\.?\d*)/);
+  if (numberMatch) {
+    return parseFloat(numberMatch[1]);
+  }
+
+  return 0;
+}
+
+interface GenerateCostTableDataParams {
+  costReportOrderId: number;
+  totalLiters: number;
+  productCode: string;
+  packingGroups: PackingGroup[];
+  activeElements: ActiveElement[];
+  inactiveElements: InactiveElement[];
+  productionCosts: ProductionCost[];
+  packagingElements: PackagingElement[];
+  bottleSizes: BottleSize[];
+}
+
+function generateCostTableData(params: GenerateCostTableDataParams): CostTableData[] {
+  const {
+    costReportOrderId,
+    totalLiters,
+    productCode,
+    packingGroups,
+    activeElements,
+    inactiveElements,
+    productionCosts,
+    packagingElements,
+    bottleSizes
+  } = params;
+
+  const costTableEntries: CostTableData[] = [];
+
+  // A. ACTIVE ELEMENTS
+  const productActiveElements = activeElements.filter(
+    ae => ae.product_code === productCode
+  );
+
+  productActiveElements.forEach(activeElement => {
+    if (!activeElement.raw_material || !activeElement.concentration) {
+      return;
+    }
+
+    const concentrationValue = parseConcentration(activeElement.concentration);
+    
+    if (concentrationValue === 0) {
+      return;
+    }
+
+    const quantityInKg = (concentrationValue * totalLiters) / 1000;
+    const ratePerKg = activeElement.cost_per_kg || 0;
+    const amount = quantityInKg * ratePerKg;
+
+    costTableEntries.push({
+      cost_report_order_id: costReportOrderId,
+      ingridient_name: activeElement.raw_material,
+      quantity: Math.round(quantityInKg * 100) / 100,
+      rate_per_kg: ratePerKg,
+      amount: Math.round(amount * 100) / 100
+    });
+  });
+
+  // B. INACTIVE ELEMENTS
+  inactiveElements.forEach(inactiveElement => {
+    if (!inactiveElement.raw_material) {
+      return;
+    }
+
+    const quantityInKg = inactiveElement.quantity || 50;
+    const ratePerKg = inactiveElement.cost_per_kg || 0;
+    const amount = quantityInKg * ratePerKg;
+
+    costTableEntries.push({
+      cost_report_order_id: costReportOrderId,
+      ingridient_name: inactiveElement.raw_material,
+      quantity: quantityInKg,
+      rate_per_kg: ratePerKg,
+      amount: Math.round(amount * 100) / 100
+    });
+  });
+
+  // C. PRODUCTION COSTS
+  productionCosts.forEach(prodCost => {
+    if (!prodCost.raw_material) {
+      return;
+    }
+
+    const quantityInKg = prodCost.quantity || 500;
+    const ratePerKg = prodCost.cost_per_kg || 0;
+    const amount = quantityInKg * ratePerKg;
+
+    costTableEntries.push({
+      cost_report_order_id: costReportOrderId,
+      ingridient_name: prodCost.raw_material,
+      quantity: quantityInKg,
+      rate_per_kg: ratePerKg,
+      amount: Math.round(amount * 100) / 100
+    });
+  });
+
+  // D. PACKAGING ELEMENTS
+  packagingElements.forEach(packagingElem => {
+    if (!packagingElem.raw_material) {
+      return;
+    }
+
+    const quantityInKg = packagingElem.quantity || 2;
+    const ratePerKg = packagingElem.cost_per_kg || 0;
+    const amount = quantityInKg * ratePerKg;
+
+    costTableEntries.push({
+      cost_report_order_id: costReportOrderId,
+      ingridient_name: packagingElem.raw_material,
+      quantity: quantityInKg,
+      rate_per_kg: ratePerKg,
+      amount: Math.round(amount * 100) / 100
+    });
+  });
+
+  // E. BOTTLES
+  const bottleGrouping: { [size: string]: number } = {};
+  
+  packingGroups.forEach(group => {
+    const size = group.packing_size;
+    const bottles = group.no_of_bottles;
+    
+    if (bottleGrouping[size]) {
+      bottleGrouping[size] += bottles;
+    } else {
+      bottleGrouping[size] = bottles;
+    }
+  });
+
+  Object.entries(bottleGrouping).forEach(([size, totalBottles]) => {
+    const bottleInfo = bottleSizes.find(
+      bs => bs.size_label.toLowerCase() === size.toLowerCase() ||
+            bs.size_label === `${size}ml` ||
+            bs.size_label === size.replace(/ml/i, '') + 'ml'
+    );
+
+    if (!bottleInfo) {
+      console.warn(`Bottle size "${size}" not found in bottle_sizes table`);
+      return;
+    }
+
+    const quantity = totalBottles;
+    const rate = bottleInfo.rate;
+    const amount = quantity * rate;
+
+    costTableEntries.push({
+      cost_report_order_id: costReportOrderId,
+      ingridient_name: `${size} BOTLS`,
+      quantity: quantity,
+      rate_per_kg: rate,
+      amount: Math.round(amount * 100) / 100
+    });
+  });
+
+  return costTableEntries;
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export default function CostConfigurator() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  
+  // Reference Data
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [orders, setOrders] = useState<CostOrder[]>([]);
-  const [viewingOrder, setViewingOrder] = useState<CostOrder | null>(null);
+  const [activeElements, setActiveElements] = useState<ActiveElement[]>([]);
+  const [inactiveElements, setInactiveElements] = useState<InactiveElement[]>([]);
+  const [productionCosts, setProductionCosts] = useState<ProductionCost[]>([]);
+  const [packagingElements, setPackagingElements] = useState<PackagingElement[]>([]);
+  const [bottleSizes, setBottleSizes] = useState<BottleSize[]>([]);
   
-  const [newManufacturingOrder, setNewManufacturingOrder] = useState<ManufacturingOrder>({
+  // Orders
+  const [orders, setOrders] = useState<CostOrderDisplay[]>([]);
+  const [viewingOrder, setViewingOrder] = useState<CostOrderDisplay | null>(null);
+  
+  const [newCostReportOrder, setNewCostReportOrder] = useState<{
+    product_id: string;
+    customer_id: string;
+    product_name: string;
+    customer_name: string;
+    brand_name: string;
+    packing_groups: PackingGroup[];
+  }>({
     product_id: "",
     customer_id: "",
     product_name: "",
-    product_description: "",
-    order_quantity: 0,
-    packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
-    expected_delivery_date: "",
-    category: "Human",
-    manufacturing_date: "",
-    expiry_date: "",
-    batch_number: "",
-    status: "Unassigned",
+    customer_name: "",
     brand_name: "",
-    company_name: "",
-    bottles_present: false,
-    labels_present: false,
-    order_note: "",
-    order_created_at: "",
-    manufacturing_code: ""
+    packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
   });
 
-  // Mock data for demo purposes - replace with actual Supabase fetch
+  // ============================================
+  // MOCK DATA - Replace with Supabase fetch
+  // ============================================
   useEffect(() => {
-    // Simulated product data
+    // TODO: Replace with actual Supabase fetch
+    // fetchProducts();
+    // fetchCustomers();
+    // fetchActiveElements();
+    // fetchInactiveElements();
+    // fetchProductionCosts();
+    // fetchPackagingElements();
+    // fetchBottleSizes();
+    
+    // Mock data for testing
     setProducts([
-      { 
-        external_id: "P001", 
-        product_name: "Enrofloxacin Injection", 
-        sales_description: "Antibiotic for veterinary use",
-        packing_sizes: ["60ml", "100ml", "250ml", "500ml"]
-      },
-      { 
-        external_id: "P002", 
-        product_name: "Paracetamol Syrup", 
-        sales_description: "Pain reliever and fever reducer",
-        packing_sizes: ["30ml", "60ml", "120ml"]
-      },
-      { 
-        external_id: "P003", 
-        product_name: "Vitamin B Complex", 
-        sales_description: "Nutritional supplement",
-        packing_sizes: ["50ml", "100ml", "200ml"]
-      }
+      { external_id: "P001", product_name: "UNIFLOX-BH SOLUTION", sales_description: "Antibiotic Solution", packing_sizes: ["100", "250", "500", "1000"] }
     ]);
-
-    // Simulated customer data
+    
     setCustomers([
-      { customer_id: "C001", customer_code: "CUST001", company_name: "ABC Pharmaceuticals" },
-      { customer_id: "C002", customer_code: "CUST002", company_name: "XYZ Healthcare" },
-      { customer_id: "C003", customer_code: "CUST003", company_name: "Global Medics Inc" }
+      { customer_id: "C001", customer_code: "CUST001", company_name: "ABC Pharma Ltd" }
+    ]);
+    
+    setActiveElements([
+      { raw_material: "ENROFLOXACIN - 200mg/ml", raw_material_code: "RM001", cost_per_kg: 2301, product_code: "P001", concentration: "200mg/ml" },
+      { raw_material: "BROMOHEXINE HCL - 15mg/ml", raw_material_code: "RM002", cost_per_kg: 2183, product_code: "P001", concentration: "15mg/ml" }
+    ]);
+    
+    setInactiveElements([
+      { raw_material: "ACETIC ACID", raw_material_code: 3, cost_per_kg: 173, quantity: 50 },
+      { raw_material: "FLAVOUR ME", raw_material_code: 4, cost_per_kg: 960, quantity: 15 }
+    ]);
+    
+    setProductionCosts([
+      { raw_material: "Overheads Charges", raw_material_code: 10, cost_per_kg: 25, quantity: 500 }
+    ]);
+    
+    setPackagingElements([
+      { raw_material: "Bopp Tape", raw_material_code: 13, cost_per_kg: 90, quantity: 2 }
+    ]);
+    
+    setBottleSizes([
+      { size_label: "100ml", unit: "ml", rate: 0, notes: null },
+      { size_label: "250ml", unit: "ml", rate: 0, notes: null },
+      { size_label: "500ml", unit: "ml", rate: 0, notes: null },
+      { size_label: "1000ml", unit: "ml", rate: 0, notes: null }
     ]);
   }, []);
 
+  // ============================================
+  // PACKING GROUP HANDLERS
+  // ============================================
+
   const addPackingGroup = () => {
-    setNewManufacturingOrder({
-      ...newManufacturingOrder,
-      packing_groups: [...newManufacturingOrder.packing_groups, { packing_size: "", no_of_bottles: 0 }],
+    setNewCostReportOrder({
+      ...newCostReportOrder,
+      packing_groups: [...newCostReportOrder.packing_groups, { packing_size: "", no_of_bottles: 0 }],
     });
   };
 
   const removePackingGroup = (index: number) => {
-    if (newManufacturingOrder.packing_groups.length === 1) return;
-    const updatedGroups = [...newManufacturingOrder.packing_groups];
+    if (newCostReportOrder.packing_groups.length === 1) return;
+    const updatedGroups = [...newCostReportOrder.packing_groups];
     updatedGroups.splice(index, 1);
-    setNewManufacturingOrder({ ...newManufacturingOrder, packing_groups: updatedGroups });
+    setNewCostReportOrder({ ...newCostReportOrder, packing_groups: updatedGroups });
   };
 
   const updatePackingGroup = (index: number, key: keyof PackingGroup, value: string | number) => {
-    const updatedGroups = [...newManufacturingOrder.packing_groups];
+    const updatedGroups = [...newCostReportOrder.packing_groups];
     updatedGroups[index] = { ...updatedGroups[index], [key]: value };
-    setNewManufacturingOrder({ ...newManufacturingOrder, packing_groups: updatedGroups });
+    setNewCostReportOrder({ ...newCostReportOrder, packing_groups: updatedGroups });
   };
 
-  const calculateTotalLiters = (packing_groups: PackingGroup[]) => {
-    return packing_groups.reduce((sum, group) => {
-      const size = parseFloat(group.packing_size);
-      const bottles = Number(group.no_of_bottles);
-      
-      if (isNaN(size) || isNaN(bottles)) return sum;
-      
-      return sum + (size * bottles) / 1000;
-    }, 0);
-  };
+  const currentTotalLiters = calculateTotalLiters(newCostReportOrder.packing_groups);
 
-  const currentTotalLiters = calculateTotalLiters(newManufacturingOrder.packing_groups);
+  // ============================================
+  // CREATE COST REPORT ORDER
+  // ============================================
 
-  const handleAddManufacturingOrder = () => {
-    if (!newManufacturingOrder.product_name || !newManufacturingOrder.company_name || !newManufacturingOrder.brand_name) {
+  const handleAddCostReportOrder = async () => {
+    if (!newCostReportOrder.product_name || !newCostReportOrder.customer_name || !newCostReportOrder.brand_name) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const newOrder: CostOrder = {
-      id: Date.now().toString(),
-      productName: newManufacturingOrder.product_name,
-      customerName: newManufacturingOrder.company_name,
-      quantity: currentTotalLiters,
-      unitPrice: 100, // Mock price
-      totalCost: currentTotalLiters * 100,
-      date: new Date().toISOString()
-    };
+    try {
+      // TODO: Replace with Supabase insert
+      // 1. Insert into cost_report_order
+      const mockOrderId = Date.now();
+      
+      // 2. Insert into packing_group_costreport
+      // await supabase.from('packing_group_costreport').insert(...)
+      
+      // 3. Generate cost_table_data
+      const costTableData = generateCostTableData({
+        costReportOrderId: mockOrderId,
+        totalLiters: currentTotalLiters,
+        productCode: newCostReportOrder.product_id,
+        packingGroups: newCostReportOrder.packing_groups,
+        activeElements,
+        inactiveElements,
+        productionCosts,
+        packagingElements,
+        bottleSizes
+      });
+      
+      // 4. Insert cost_table_data
+      // await supabase.from('cost_table_data').insert(costTableData);
+      
+      // Calculate total cost
+      const totalCost = costTableData.reduce((sum, item) => sum + (item.amount || 0), 0);
+      
+      // 5. Add to display list
+      const newOrder: CostOrderDisplay = {
+        id: mockOrderId.toString(),
+        product_name: newCostReportOrder.product_name,
+        customer_name: newCostReportOrder.customer_name,
+        brand_name: newCostReportOrder.brand_name,
+        quantity: currentTotalLiters,
+        total_cost: totalCost,
+        date: new Date().toISOString(),
+        cost_items: costTableData
+      };
 
-    setOrders([...orders, newOrder]);
-    setShowAddForm(false);
+      setOrders([...orders, newOrder]);
+      setShowAddForm(false);
+      
+      // Reset form
+      setNewCostReportOrder({
+        product_id: "",
+        customer_id: "",
+        product_name: "",
+        customer_name: "",
+        brand_name: "",
+        packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
+      });
+      setProductSearch("");
+      setCustomerSearch("");
+      
+      alert('Cost report created successfully!');
+    } catch (error) {
+      console.error('Error creating cost report:', error);
+      alert('Error creating cost report. Check console for details.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  // ============================================
+  // DELETE ORDER
+  // ============================================
+
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this order?')) {
+      // TODO: Delete from Supabase
+      // await supabase.from('cost_report_order').delete().eq('id', id);
       setOrders(orders.filter(o => o.id !== id));
     }
   };
 
-  const downloadAsExcel = (order?: CostOrder) => {
-    const dataToExport = order ? [order] : orders;
-    
-    const worksheet = XLSX.utils.json_to_sheet(
-      dataToExport.map(o => ({
-        'Product Name': o.productName,
-        'Customer Name': o.customerName,
-        'Quantity (L)': o.quantity,
-        'Unit Price': o.unitPrice,
-        'Total Cost': o.totalCost,
-        'Date': new Date(o.date).toLocaleDateString(),
-      }))
-    );
+  // ============================================
+  // FILTERED DATA
+  // ============================================
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Cost Orders');
-    
-    const fileName = order 
-      ? `cost_order_${order.productName}_${Date.now()}.xlsx`
-      : `all_cost_orders_${Date.now()}.xlsx`;
-    
-    XLSX.writeFile(workbook, fileName);
-  };
-
-  const selectedProduct = products.find(p => p.external_id === newManufacturingOrder.product_id);
+  const selectedProduct = products.find(p => p.external_id === newCostReportOrder.product_id);
   const filteredPackingSizes = selectedProduct ? selectedProduct.packing_sizes : [];
 
   const filteredProducts = products.filter(p =>
@@ -212,12 +525,16 @@ export default function CostConfigurator() {
   const filteredCustomers = customers.filter((c) => {
     const companyName = (c.company_name ?? "").toLowerCase();
     const customerId = c.customer_id ? c.customer_id.toString().toLowerCase() : "";
-  
+    
     return (
       companyName.includes(customerSearch.toLowerCase()) ||
       customerId.includes(customerSearch.toLowerCase())
     );
   });
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -261,11 +578,10 @@ export default function CostConfigurator() {
                             className="p-2 hover:bg-gray-100 cursor-pointer"
                             key={p.external_id}
                             onClick={() => {
-                              setNewManufacturingOrder({ 
-                                ...newManufacturingOrder, 
+                              setNewCostReportOrder({ 
+                                ...newCostReportOrder, 
                                 product_id: p.external_id, 
-                                product_name: p.product_name, 
-                                product_description: p.sales_description 
+                                product_name: p.product_name
                               });
                               setProductSearch(p.product_name);
                               setShowProductDropdown(false);
@@ -301,10 +617,10 @@ export default function CostConfigurator() {
                             className="p-2 hover:bg-gray-100 cursor-pointer"
                             key={c.customer_id}
                             onClick={() => {
-                              setNewManufacturingOrder({ 
-                                ...newManufacturingOrder, 
+                              setNewCostReportOrder({ 
+                                ...newCostReportOrder, 
                                 customer_id: c.customer_code, 
-                                company_name: c.company_name 
+                                customer_name: c.company_name 
                               });
                               setCustomerSearch(c.company_name);
                               setShowCustomerDropdown(false);
@@ -320,12 +636,12 @@ export default function CostConfigurator() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">              
+              <div className="grid grid-cols-2 gap-4">              
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Brand Name *</label>
                   <input
-                    value={newManufacturingOrder.brand_name}
-                    onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, brand_name: e.target.value })}
+                    value={newCostReportOrder.brand_name}
+                    onChange={(e) => setNewCostReportOrder({ ...newCostReportOrder, brand_name: e.target.value })}
                     placeholder="Enter brand name"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
@@ -340,29 +656,18 @@ export default function CostConfigurator() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Calculated from: {newManufacturingOrder.packing_groups
+                    Calculated from: {newCostReportOrder.packing_groups
                       .filter(group => group.packing_size && group.no_of_bottles > 0)
                       .map((group) => 
                         `${group.packing_size}ml × ${group.no_of_bottles} bottles`
                       ).join(' + ') || 'No packing groups defined'}
                   </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                  <select
-                    value={newManufacturingOrder.category}
-                    onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, category: e.target.value as "Human" | "Veterinary" })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="Human">Human</option>
-                    <option value="Veterinary">Veterinary</option>
-                  </select>
-                </div>              
+                </div>             
               </div>
           
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Packing Sizes & Number of Bottles *</label>
-                {newManufacturingOrder.packing_groups.map((group, idx) => (
+                {newCostReportOrder.packing_groups.map((group, idx) => (
                   <div key={idx} className="grid grid-cols-3 gap-4 items-center mb-2">
                     <select
                       className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -371,7 +676,7 @@ export default function CostConfigurator() {
                     >
                       <option value="">Select packing size</option>
                       {filteredPackingSizes.map((size) => (
-                        <option key={size} value={size}>{size}</option>
+                        <option key={size} value={size}>{size}ml</option>
                       ))}
                     </select>
 
@@ -386,7 +691,7 @@ export default function CostConfigurator() {
 
                     <button
                       onClick={() => removePackingGroup(idx)}
-                      disabled={newManufacturingOrder.packing_groups.length === 1}
+                      disabled={newCostReportOrder.packing_groups.length === 1}
                       className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Remove
@@ -401,44 +706,9 @@ export default function CostConfigurator() {
                 </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Add Notes for This Order</label>
-                <textarea
-                  placeholder="Add a Remark..."
-                  value={newManufacturingOrder.order_note}
-                  onChange={(e) => setNewManufacturingOrder({ ...newManufacturingOrder, order_note: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[80px]"
-                />
-              </div> 
-
               <div className="flex gap-3 pt-4">
                 <button 
-                  onClick={() => {
-                    handleAddManufacturingOrder(); 
-                    setNewManufacturingOrder({
-                      product_id: "",
-                      customer_id: "",
-                      product_name: "",
-                      product_description: "",
-                      order_quantity: 0,
-                      packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
-                      expected_delivery_date: "",
-                      category: "Human",
-                      manufacturing_date: "",
-                      expiry_date: "",
-                      batch_number: "",
-                      status: "Unassigned",
-                      brand_name: "",
-                      company_name: "",
-                      bottles_present: false,
-                      labels_present: false,
-                      order_note: "",
-                      order_created_at: "",
-                      manufacturing_code: ""
-                    });
-                    setProductSearch("");
-                    setCustomerSearch("");
-                  }} 
+                  onClick={handleAddCostReportOrder} 
                   className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                 >
                   Create Order
@@ -446,26 +716,13 @@ export default function CostConfigurator() {
                 <button
                   onClick={() => {
                     setShowAddForm(false);
-                    setNewManufacturingOrder({
+                    setNewCostReportOrder({
                       product_id: "",
                       customer_id: "",
                       product_name: "",
-                      product_description: "",
-                      order_quantity: 0,
-                      packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
-                      expected_delivery_date: "",
-                      category: "Human",
-                      manufacturing_date: "",
-                      expiry_date: "",
-                      batch_number: "",
-                      status: "Unassigned",
+                      customer_name: "",
                       brand_name: "",
-                      company_name: "",
-                      bottles_present: false,
-                      labels_present: false,
-                      order_note: "",
-                      order_created_at: "",
-                      manufacturing_code: ""
+                      packing_groups: [{ packing_size: "", no_of_bottles: 0 }],
                     });
                     setProductSearch("");
                     setCustomerSearch("");
@@ -479,18 +736,6 @@ export default function CostConfigurator() {
           </div>
         )}
 
-        {orders.length > 0 && (
-          <div className="flex justify-end">
-            <button
-              onClick={() => downloadAsExcel()}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            >
-              <Download className="w-5 h-5" />
-              Export All to Excel
-            </button>
-          </div>
-        )}
-
         <div className="space-y-4">
           {orders.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500">
@@ -501,10 +746,10 @@ export default function CostConfigurator() {
               <div key={order.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800">{order.productName}</h3>
-                    <p className="text-gray-600 mt-1">{order.customerName}</p>
+                    <h3 className="text-xl font-semibold text-gray-800">{order.product_name}</h3>
+                    <p className="text-gray-600 mt-1">{order.customer_name}</p>
                     <p className="text-sm text-gray-500 mt-2">
-                      Quantity: {order.quantity.toFixed(2)}L | Total: ${order.totalCost.toFixed(2)} | Date: {new Date(order.date).toLocaleDateString()}
+                      Brand: {order.brand_name} | Quantity: {order.quantity.toFixed(2)}L | Total: ₹{order.total_cost.toFixed(2)} | Date: {new Date(order.date).toLocaleDateString()}
                     </p>
                   </div>
 
@@ -515,13 +760,6 @@ export default function CostConfigurator() {
                       title="View"
                     >
                       <Eye className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => downloadAsExcel(order)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Download"
-                    >
-                      <Download className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDelete(order.id)}
@@ -539,35 +777,75 @@ export default function CostConfigurator() {
 
         {viewingOrder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Order Details</h2>
-              <div className="space-y-3">
-                <div>
-                  <span className="font-semibold text-gray-700">Product Name:</span>
-                  <span className="ml-2 text-gray-600">{viewingOrder.productName}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-700">Customer Name:</span>
-                  <span className="ml-2 text-gray-600">{viewingOrder.customerName}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-700">Quantity:</span>
-                  <span className="ml-2 text-gray-600">{viewingOrder.quantity.toFixed(2)} L</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-700">Unit Price:</span>
-                  <span className="ml-2 text-gray-600">${viewingOrder.unitPrice.toFixed(2)}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-700">Total Cost:</span>
-                  <span className="ml-2 text-gray-600">${viewingOrder.totalCost.toFixed(2)}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-700">Date:</span>
-                  <span className="ml-2 text-gray-600">{new Date(viewingOrder.date).toLocaleString()}</span>
-                </div>
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white px-6 py-4 border-b">
+                <h2 className="text-2xl font-bold text-gray-800">Cost Breakdown Details</h2>
               </div>
-              <div className="mt-6 flex justify-end">
+              
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <span className="font-semibold text-gray-700">Product Name:</span>
+                    <span className="ml-2 text-gray-600">{viewingOrder.product_name}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Customer Name:</span>
+                    <span className="ml-2 text-gray-600">{viewingOrder.customer_name}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Brand Name:</span>
+                    <span className="ml-2 text-gray-600">{viewingOrder.brand_name}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Quantity:</span>
+                    <span className="ml-2 text-gray-600">{viewingOrder.quantity.toFixed(2)} L</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Total Cost:</span>
+                    <span className="ml-2 text-gray-600 font-bold text-green-600">₹{viewingOrder.total_cost.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">Date:</span>
+                    <span className="ml-2 text-gray-600">{new Date(viewingOrder.date).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {viewingOrder.cost_items && viewingOrder.cost_items.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Cost Items Breakdown</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold">S.NO</th>
+                            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-semibold">Ingredient Name</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right text-sm font-semibold">Quantity</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right text-sm font-semibold">Rate/KG</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right text-sm font-semibold">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewingOrder.cost_items.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-4 py-2 text-sm">{idx + 1}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-sm">{item.ingridient_name}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-sm text-right">{item.quantity?.toFixed(2)}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-sm text-right">{item.rate_per_kg?.toFixed(2)}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-sm text-right font-semibold">{item.amount?.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-green-50 font-bold">
+                            <td colSpan={4} className="border border-gray-300 px-4 py-2 text-right">TOTAL PAYABLE AMOUNT</td>
+                            <td className="border border-gray-300 px-4 py-2 text-right text-green-700">₹{viewingOrder.total_cost.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="sticky bottom-0 bg-white px-6 py-4 border-t flex justify-end">
                 <button
                   onClick={() => setViewingOrder(null)}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -581,4 +859,4 @@ export default function CostConfigurator() {
       </div>
     </div>
   );
-}
+}            
