@@ -372,32 +372,9 @@ const ProductsTab = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Products Management</h2>
         <div className="flex gap-3">
-        {/* <input }
-            type="file"
-            accept=".xlsx, .xls"
-            ref={fileInputRef}
-            style={{ display: "none" }}
-            onChange={handleImportProducts}
-        />*/}
-          {/* <Button
-            variant="outline"
-            onClick={handleDownloadProducts}
-            className="flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Download Product Data
-          </Button> */}
-          {/* <Button
-            variant="outline"
-            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            className="flex items-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            Import Excel
-          </Button> */}
           <Button
-            className={`flex items-center gap-2 ${['admin', 'manager'].includes(userRole) ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
-            disabled={['admin', 'manager'].includes(userRole)}
+            className={`flex items-center gap-2 bg-green-500 hover:bg-green-600`}
+            disabled={['manager',"user"].includes(userRole)}
             onClick={() => setShowAddForm(!showAddForm)}
           >
             <Plus className="w-4 h-4" />
