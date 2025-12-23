@@ -368,12 +368,12 @@ const ProductsTab = () => {
   // testQuery();
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Products Management</h2>
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold  text-gray-900">Products Management</h2>
         <div className="flex gap-3">
           <Button
-            className={`flex items-center gap-2 bg-green-500 hover:bg-green-600`}
+            className={`flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto`}
             disabled={['manager',"user"].includes(userRole)}
             onClick={() => setShowAddForm(!showAddForm)}
           >
@@ -400,8 +400,8 @@ const ProductsTab = () => {
           <CardHeader>
             <CardTitle className="text-green-700">Add New Product</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="externalId">External ID *</Label>
                 <Input
@@ -514,6 +514,7 @@ const ProductsTab = () => {
               <Button
                 type="button"
                 variant="secondary"
+                className="w-full sm:w-auto"
                 onClick={() =>
                   setNewProduct({
                     ...newProduct,
@@ -524,7 +525,7 @@ const ProductsTab = () => {
                 Add Packing Size
               </Button>
             </div>
-            <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="primaryUnit">Primary Unit</Label>
                 <Input
@@ -557,7 +558,7 @@ const ProductsTab = () => {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button onClick={handleAddProduct} className="bg-green-500 hover:bg-green-600">
                 Add Product
               </Button>
@@ -570,7 +571,7 @@ const ProductsTab = () => {
       )}
 
       {/* Products List */}
-      <div className="flex gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Select
           value={parentCategoryFilter}
           onValueChange={value => {
@@ -617,21 +618,21 @@ const ProductsTab = () => {
         ) : (
           filteredProducts.map((product) => (
             <Card key={product.external_id} className="hover:shadow-md transition-shadow" onClick={() => handleProductClick(product)}>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-center">
-                  <div className="mt-3 mr-3 p-3 bg-gray-100 rounded-xl">
-                    <Pill className="w-6 h-7"/>
+              <CardContent className="p-6 sm:p-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="hidden lg:block mt-3 mr-3 p-3 bg-gray-100 rounded-xl">
+                    <Pill className="w-6 h-7 "/>
                   </div>
-                  <div className="flex-1 ">
-                    <h3 className="text-lg font-semibold text-gray-900">{product.product_name}</h3>
-                    <p className="text-gray-600 mt-1 max-w-5xl">{product.sales_description}</p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 ">{product.product_name}</h3>
+                    <p className="text-gray-600 mt-1 max-w-5xl sm:text-base">{product.sales_description}</p>
                     <div className="flex flex-wrap gap-2 mt-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${
                         product.category === "Human"
                           ? "bg-blue-100 text-blue-800"
                           : "bg-purple-100 text-purple-800"
                       }`}>{product.category}</span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${subCategoryColorMap[product.sub_category]}`}>
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${subCategoryColorMap[product.sub_category]}`}>
                         {product.sub_category}
                       </span>
                       {product.packing_sizes.map((size, index) => (
@@ -641,8 +642,8 @@ const ProductsTab = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right text-sm text-gray-500 mt-2">
-                    <p>Ref: {product.internal_reference}</p>
+                  <div className="text-sm text-gray-500 sm:text-right space-y-1">
+                    <p className="break-all">Ref: {product.internal_reference}</p>
                     <p>ID: {product.external_id}</p>
                     <p>UQC: {product.uqc}</p>
                   </div>
@@ -663,7 +664,7 @@ const ProductsTab = () => {
           </DialogHeader>
           
           {selectedProduct && (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 sm:p-6">
               {/* Product Header */}
               <div className="border-b pb-4">
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -746,7 +747,7 @@ const ProductsTab = () => {
                     onChange={e => setEditForm({ ...editForm, sales_description: e.target.value })}
                   />
                 ) : (
-                  <p className="text-gray-700 leading-relaxed">
+                  <p className="text-gray-700 leading-relaxed ">
                     {selectedProduct.sales_description}
                   </p>
                 )}
