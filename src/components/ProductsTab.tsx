@@ -368,19 +368,19 @@ const ProductsTab = () => {
   // testQuery();
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold  text-gray-900">Products Management</h2>
-        <div className="flex gap-3">
-          <Button
-            className={`flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto`}
-            disabled={['manager',"user"].includes(userRole)}
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
-            <Plus className="w-4 h-4" />
-            Add Product
-          </Button>
-        </div>
+    <div className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 max-w-full overflow-hidden">
+      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 sm:gap-4">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900  leading-tight">
+          Products Management
+        </h2>
+        <Button
+          className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-2.5 w-full xs:w-auto whitespace-nowrap"
+          disabled={['manager', "user"].includes(userRole)}
+          onClick={() => setShowAddForm(!showAddForm)}
+        >
+          <Plus className="w-4 h-4 flex-shrink-0" />
+          <span>Add Product</span>
+        </Button>
       </div>
 
       {/* Search */}
@@ -570,8 +570,8 @@ const ProductsTab = () => {
         </Card>
       )}
 
-      {/* Products List */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Products Filter */}
+      <div className="flex flex-row gap-2 sm:gap-3 order-1 sm:order-2">
         <Select
           value={parentCategoryFilter}
           onValueChange={value => {
@@ -579,7 +579,7 @@ const ProductsTab = () => {
             setSubCategoryFilter(""); // Reset subcategory on parent change
           }}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40 text-sm">
             <SelectValue placeholder="Select Type" />
           </SelectTrigger>
           <SelectContent>
@@ -596,7 +596,7 @@ const ProductsTab = () => {
             onValueChange={value => setSubCategoryFilter(value)}
             
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40 text-sm">
               <SelectValue placeholder="Select Subcategory" />
             </SelectTrigger>
             <SelectContent>
@@ -610,42 +610,79 @@ const ProductsTab = () => {
         )}
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {filteredProducts.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-gray-500">No products found. Add your first product to get started.</p>
+          <Card className="p-6 sm:p-8 text-center">
+            <p className="text-sm sm:text-base text-gray-500">
+              No products found. Add your first product to get started.
+            </p>
           </Card>
         ) : (
           filteredProducts.map((product) => (
-            <Card key={product.external_id} className="hover:shadow-md transition-shadow" onClick={() => handleProductClick(product)}>
-              <CardContent className="p-6 sm:p-6">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="hidden lg:block mt-3 mr-3 p-3 bg-gray-100 rounded-xl">
-                    <Pill className="w-6 h-7 "/>
+            <Card 
+              key={product.external_id} 
+              className="hover:shadow-md transition-shadow cursor-pointer overflow-hidden" 
+              onClick={() => handleProductClick(product)}
+            >
+              <CardContent className="p-4 sm:p-5 md:p-6">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  {/* Icon - Hidden on mobile, visible on desktop */}
+                  <div className="hidden lg:flex mt-0 lg:mt-3 p-3 bg-gray-100 rounded-xl flex-shrink-0">
+                    <Pill className="w-6 h-6" />
                   </div>
+
+                  {/* Main Content */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 ">{product.product_name}</h3>
-                    <p className="text-gray-600 mt-1 max-w-5xl sm:text-base">{product.sales_description}</p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${
+                    {/* Product Name */}
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words leading-tight mb-1 sm:mb-2">
+                      {product.product_name}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="text-xs sm:text-sm md:text-base text-gray-600 break-words line-clamp-2 sm:line-clamp-3">
+                      {product.sales_description}
+                    </p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
+                      {/* Category Tag */}
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap ${
                         product.category === "Human"
                           ? "bg-blue-100 text-blue-800"
                           : "bg-purple-100 text-purple-800"
-                      }`}>{product.category}</span>
-                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${subCategoryColorMap[product.sub_category]}`}>
+                      }`}>
+                        {product.category}
+                      </span>
+
+                      {/* Sub-category Tag */}
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap ${subCategoryColorMap[product.sub_category]}`}>
                         {product.sub_category}
                       </span>
+
+                      {/* Packing Sizes */}
                       {product.packing_sizes.map((size, index) => (
-                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                        <span 
+                          key={index} 
+                          className="px-2 sm:px-2.5 py-1 bg-gray-100 text-gray-700 rounded text-[10px] sm:text-xs whitespace-nowrap"
+                        >
                           {size}
                         </span>
                       ))}
                     </div>
+
+                    {/* Product Details - Show below content on mobile */}
+                    <div className="flex sm:hidden flex-wrap gap-x-3 gap-y-1 mt-3 text-[12px] text-gray-500">
+                      <p className="break-all">Ref: {product.internal_reference}</p>
+                      <p className="whitespace-nowrap">ID: {product.external_id}</p>
+                      <p className="whitespace-nowrap">UQC: {product.uqc}</p>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 sm:text-right space-y-1">
+
+                  {/* Side Info - Desktop only */}
+                  <div className="hidden sm:flex flex-col justify-start text-xs md:text-sm text-gray-500 text-right space-y-1 flex-shrink-0 min-w-[120px]">
                     <p className="break-all">Ref: {product.internal_reference}</p>
-                    <p>ID: {product.external_id}</p>
-                    <p>UQC: {product.uqc}</p>
+                    <p className="whitespace-nowrap">ID: {product.external_id}</p>
+                    <p className="whitespace-nowrap">UQC: {product.uqc}</p>
                   </div>
                 </div>
               </CardContent>

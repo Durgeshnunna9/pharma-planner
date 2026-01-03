@@ -16,6 +16,7 @@ import {
   Component,
   FileSpreadsheet,
   Menu,
+  Home,
   X
 } from "lucide-react";
 import ProductsTab from "@/components/ProductsTab";
@@ -30,7 +31,7 @@ const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState(""); // Empty string = Home
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,7 +96,7 @@ const Index = () => {
 
   const visibleTabs = tabs.filter((tab) => tab.roles.includes(profile?.role));
   const ActiveComponent = visibleTabs.find((tab) => tab.id === activeTab)?.component;
-  const activeTabName = visibleTabs.find((tab) => tab.id === activeTab)?.label || "Dashboard";
+  const activeTabName = activeTab === "" ? "Home" : visibleTabs.find((tab) => tab.id === activeTab)?.label || "Dashboard";
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
@@ -120,10 +121,11 @@ const Index = () => {
         >
           {/* Top section */}
           <div>
-            <div className={`flex items-center justify-between ${!sidebarOpen ? "flex-row" : "flex-col"} p-4 border-b`}>
+            <div className={`flex items-center justify-between ${!sidebarOpen ? "flex-row" : "flex-col"} p-3 md:p-4 border-b`}>
               <div className="flex items-center m-0 pr-0">
-              {!sidebarOpen?<img src={Logo} alt="Company Logo" className="w-7 h-6"/>:<span></span>}
-                {sidebarOpen && (
+                {!sidebarOpen ? (
+                  <img src={Logo} alt="Company Logo" className="w-6 h-5 md:w-7 md:h-6"/>
+                ) : (
                   <img src={FullName} alt="Company Full Logo" />
                 )}
               </div>
@@ -136,7 +138,28 @@ const Index = () => {
             </div>
 
             {/* Menu Items */}
-            <nav className="mt-4">
+            <nav className="mt-2 md:mt-4">
+              {/* Home Button */}
+              <div
+                onClick={() => setActiveTab("")}
+                className={`flex ${
+                  sidebarOpen ? "justify-start gap-2 md:gap-3 px-2 md:px-3" : "justify-center"
+                } items-center py-2.5 md:py-3 px-2 md:px-3 mx-2 rounded-md cursor-pointer transition-all duration-300
+                ${activeTab === ""
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100 text-gray-800"}
+                `}
+              >
+                {sidebarOpen ? (
+                  <>
+                    <Home className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-sm md:text-base font-medium">Home</span>
+                  </>
+                ) : (
+                  <Home className="w-5 h-5 md:w-6 md:h-6" />
+                )}
+              </div>
+
               {visibleTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -144,8 +167,8 @@ const Index = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex ${
-                      sidebarOpen ? "justify-start gap-3 px-3" : "justify-center"
-                    } items-center p-3 mx-2 rounded-md cursor-pointer transition-all duration-300
+                      sidebarOpen ? "justify-start gap-2 md:gap-3 px-2 md:px-3" : "justify-center"
+                    } items-center py-2.5 md:py-3 px-2 md:px-3 mx-2 rounded-md cursor-pointer transition-all duration-300
                     ${activeTab === tab.id
                       ? "bg-green-100 text-green-700"
                       : "hover:bg-gray-100 text-gray-800"}
@@ -153,11 +176,11 @@ const Index = () => {
                   >
                     {sidebarOpen ? (
                       <>
-                        <Icon className="w-5 h-6" />
-                        <span>{tab.label}</span>
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                        <span className="text-sm md:text-base font-medium truncate">{tab.label}</span>
                       </>
                     ) : (
-                      <Icon className="w-6 h-5" />
+                      <Icon className="w-5 h-5 md:w-6 md:h-6" />
                     )}
                   </div>
                 );
@@ -166,21 +189,21 @@ const Index = () => {
           </div>
 
           {/* Bottom: Profile + Logout */}
-          <div className="border-t p-4 flex flex-col gap-2">
+          <div className="border-t p-3 md:p-4 flex flex-col gap-2">
             {profile && (
               <div
                 className={`flex items-center ${
-                  sidebarOpen ? "justify-start gap-3 px-3" : "justify-center"
+                  sidebarOpen ? "justify-start gap-2 md:gap-3 px-2 md:px-3" : "justify-center"
                 } transition-all duration-300`}
               >
-                <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs md:text-sm">
                   {profile.full_name?.[0]?.toUpperCase()}
                 </div>
               
                 {sidebarOpen && (
                   <div className="transition-opacity duration-300">
-                    <p className="text-sm font-medium">{profile.full_name}</p>
-                    <p className="text-xs text-gray-500">{profile.role}</p>
+                    <p className="text-xs md:text-sm font-medium">{profile.full_name}</p>
+                    <p className="text-[10px] md:text-xs text-gray-500">{profile.role}</p>
                   </div>
                 )}
               </div>
@@ -189,12 +212,12 @@ const Index = () => {
               onClick={handleLogout}
               variant="ghost"
               className={`flex items-center w-full ${
-                sidebarOpen ? "justify-start px-4 pl-7 gap-2" : "justify-center"
+                sidebarOpen ? "justify-start px-3 md:px-4 gap-2" : "justify-center"
               } text-red-500 hover:text-red-700 mt-2 transition-all duration-300`}
             >
-              <LogOut className="w-7 h-7" />
+              <LogOut className="w-4 h-4 md:w-5 md:h-5" />
               {sidebarOpen && (
-                <span className="transition-opacity duration-300">Logout</span>
+                <span className="text-sm md:text-base transition-opacity duration-300">Logout</span>
               )}
             </Button>
           </div>
@@ -223,9 +246,66 @@ const Index = () => {
             {ActiveComponent ? (
               <ActiveComponent />
             ) : (
-              <h2 className="text-center text-xl font-medium text-gray-700">
-                Welcome to Sansan Groups
-              </h2>
+              <>
+                {/* Welcome Section */}
+                <div className="pb-6 md:pb-8 border-b border-gray-200">
+                  <img 
+                    src={FullName} 
+                    alt="Company Full Logo" 
+                    className="w-24 h-8 mx-auto mb-3 md:w-32 md:h-12 lg:w-40 lg:h-16"
+                  />
+                  <h2 className="text-center text-xl font-medium text-gray-700 md:text-2xl lg:text-4xl">
+                    Welcomes you
+                  </h2>
+                </div>
+
+                {/* Navigation Buttons Section */}
+                <div className="mt-8 md:mt-12">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-5xl mx-auto">
+                    <button 
+                      onClick={() => setActiveTab("dashboard")}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Dashboard
+                    </button>
+                    
+                    <button 
+                      onClick={() => setActiveTab("products")}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Product
+                    </button>
+                    
+                    <button 
+                      onClick={() => setActiveTab("customers")}
+                      className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Customer
+                    </button>
+                    
+                    <button 
+                      onClick={() => setActiveTab("production")}
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Production
+                    </button>
+                    
+                    <button 
+                      onClick={() => setActiveTab("shopfloor")}
+                      className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Shop Floor
+                    </button>
+                    
+                    <button 
+                      onClick={() => setActiveTab("costConfig")}
+                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 md:py-4 px-4 md:px-6 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm md:text-base"
+                    >
+                      Cost Configurator
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </main>
@@ -328,6 +408,24 @@ const Index = () => {
 
               {/* Navigation Items */}
               <nav className="flex-1 overflow-y-auto p-4">
+                {/* Home Button in Mobile Menu */}
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleTabClick("")}
+                  className={`flex items-center gap-4 p-4 mb-2 rounded-xl cursor-pointer transition-all ${
+                    activeTab === ""
+                      ? "bg-blue-100 text-blue-700 shadow-md"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${
+                    activeTab === "" ? "bg-blue-200" : "bg-gray-100"
+                  }`}>
+                    <Home className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">Home</span>
+                </motion.div>
+
                 {visibleTabs.map((tab) => {
                   const Icon = tab.icon;
                   return (

@@ -107,8 +107,10 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center flex-col justify-center bg-gradient-to-br from-green-50 to-white">
-      <h1 className="text-5xl font-bold mb-20">Welcome to Sansan Group</h1>
+    <div className="min-h-screen flex items-center flex-col justify-center bg-gradient-to-br from-green-50 to-white p-5">
+      <h1 className="text-4xl text-center font-bold mb-10 sm:text-3xl">
+        Welcome to Sansan Group
+      </h1>
 
       <Card className="p-8 w-full max-w-md shadow-lg">
         <h2 className="text-2xl font-bold mb-6 text-center">
@@ -141,16 +143,22 @@ const Login = () => {
             autoComplete="off"
             required
           />
-          <div style={{ position: "relative", display: "inline-block" }}>
+          <div style={{ 
+            position: "relative", 
+            display: "inline-block",
+            width: "100%",
+            maxWidth: "380px"
+          }}>
             <Input
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={handleChange}
               placeholder="Enter password"
               style={{
-                padding: "8px 36px 8px 8px",
+                padding: "10px 40px 10px 12px",
                 fontSize: "16px",
-                width: "380px",
+                width: "100%",
+                boxSizing: "border-box"
               }}
               autoComplete="new-password"
               required
@@ -161,11 +169,16 @@ const Login = () => {
               onClick={() => setShowPassword(!showPassword)}
               style={{
                 position: "absolute",
-                right: "8px",
+                right: "10px",
                 top: "50%",
                 transform: "translateY(-50%)",
                 cursor: "pointer",
                 color: "#555",
+                padding: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                touchAction: "manipulation"
               }}
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
